@@ -1,0 +1,46 @@
+
+{% extends "SportsRushAdminBundle::admin.html.twig" %}
+{% from "SportsRushAdminBundle::admin.html.twig" import thumbnail %}
+
+    {% block sidebar %}
+    {% import _self as itself %}
+    {% endblock %}
+
+    {% block body %}
+    <div class="claims">
+        {% for claim in claims %}
+        <div class="claim-card">
+          <div class="claim-target">
+            {%if claim.getReportedUser() %}
+                <b>Reported User</b>
+                 <span class="">{{claim.getReportedUser().getUsername}}</span>
+            {% endif %}
+            {%if claim.getReportedPost() %}
+                <b>Reported Post</b>
+                 <span class="">{{claim.getReportedPost().getId()}}</span>
+            {% endif %}
+          </div>
+          <div class="claim-date">{{claim.getCreateDate()|date("m/d/Y H:i")}}</div> <div class="claim-timing"></div>
+          <div class="claim-reason"><b>Reason:</b> {{claim.getReason()}}</div>
+          <div class="claim-suggestion"><b>Suggestion:</b> {{claim.getSuggestion()}}</div>
+          <div class="claim-details"><b>Details:</b> {{claim.getDetails()}}</div>
+          <div class="claim-author"><b>Claimed By:</b> {{claim.getUser().getUsername()}}</div>
+          <div class="claim-funcs">
+            {% if claim.isPending() %}
+                <a href="#" class="btn">Dismiss the claim</a>
+                {%if claim.getReportedUser() %}
+                    <a href="#" class="btn dark">Freeze Account</a>
+                    <a href="#" class="btn dark">Delete Account</a>
+                    <a href="#" class="btn dark">Ban Email</a>
+                {% endif %}
+                {%if claim.getReportedPost() %}
+                    <a href="#" class="btn">Delete Post</a>
+                {% endif %}
+            {% else %}
+                <div class="claim-status"><b>Status:</b> {{claim.getStatus()}}</div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endblock %}

@@ -1,0 +1,17 @@
+
+{% extends "SportsRushAdminBundle::admin.html.twig" %}
+{% from "SportsRushAdminBundle::admin.html.twig" import thumbnail %}
+
+    {% block sidebar %}
+    {% import _self as itself %}
+    {% endblock %}
+
+    {% block body %}
+    {% import _self as itself %}
+        {% for image in images %}
+            <div class="thumbnail-frame">
+              <div class="thumbnail" style='background-image: url("/{{ image }}")'></div>
+            </div>
+        {% endfor %}
+    {% endblock %}
+
