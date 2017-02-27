@@ -2,7 +2,7 @@ window.onload = function(e){
 
     $('.db_table input').each(toggleColumn);
     $('td input').removeAttr('checked');
-    $('.select_all').removeAttr('checked');
+    $('input.select_all').removeAttr('checked');
     
     $('.select_all').change(function(e){
         if( $('td.id').length<1 ){ return; }
@@ -30,6 +30,7 @@ window.onload = function(e){
     $('.edit').click(activate_edit);
     $('.cancel-edit').click(cancel_edit);
     $('.save').click(submit_save);
+    $('.refresh').click(submit_refresh);
     $('.delete_rows').click(submit_delete);
 
     $('td input').change(function(e){
@@ -98,6 +99,13 @@ function cancel_edit(e){
     });
 }
 
+function submit_refresh(){
+    $.post('', 'refresh_prefs_table=1' )
+     .done( function(r){
+        console.log(r);
+        flashCard.add('success', JSON.stringify(r) );
+    });
+}
 function submit_save(){
     $.post('', $('form.prefs').serialize() )
      .done( function(r){

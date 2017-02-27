@@ -1,6 +1,4 @@
-
-{% extends "SportsRushAdminBundle::admin.html.twig" %}
-{% from "SportsRushAdminBundle::admin.html.twig" import thumbnail %}
+{% extends "MuseumAdminBundle::admin.html.twig" %}
 
     {% block sidebar %}
     {% import _self as itself %}
@@ -8,9 +6,10 @@
 
     {% block body %}
     {% import _self as itself %}
-        {% for image in images %}
+        {% for i, image in images %}
             <div class="thumbnail-frame">
-              <div class="thumbnail" style='background-image: url("/{{ image }}")'></div>
+              <input id="thumb{{i}}" type="checkbox"/>
+              <label title="{{image}}" for="thumb{{i}}" class="thumbnail" style='background-image: url("/{{ image }}")'></label>
             </div>
         {% endfor %}
     {% endblock %}

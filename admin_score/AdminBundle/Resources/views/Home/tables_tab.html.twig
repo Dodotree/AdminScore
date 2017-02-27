@@ -1,4 +1,4 @@
-{% extends "SportsRushAdminBundle::admin.html.twig" %}
+{% extends "MuseumAdminBundle::admin.html.twig" %}
 
     {% block sidebar %}
     {% import _self as itself %}
@@ -29,6 +29,7 @@
                 <h1>
                   {{myTable.table.name}}
                   <a class="save btn">Save Preferences</a>
+                  <a class="refresh btn dark">Refresh Preferences</a>
                   <a class="add btn">Add</a>
                   <a class="edit btn">Edit</a>
                   <span class="edit-save-span hidden">
@@ -105,14 +106,16 @@
 
 
 {% macro table_cell_inside(col_name, row) %}
-{% from "SportsRushAdminBundle::admin.html.twig" import thumbnail %}
+{% from "MuseumAdminBundle::admin.html.twig" import thumbnail %}
 {% import _self as itself %}
     {% if col_name == 'avatar' %}
-        {{ thumbnail(row[ col_name ], true) }}
+        {{ thumbnail('', row[ col_name ], true) }}
     {% elseif col_name == 'youtube' %}
-        {{ thumbnail(  'https://i.ytimg.com/vi/' ~ row[ col_name ] ~ '/mqdefault.jpg', true) }}
+        {{ thumbnail('', 'https://i.ytimg.com/vi/' ~ row[ col_name ] ~ '/mqdefault.jpg', true) }}
     {% elseif col_name == 'image' %}
-        {{ thumbnail(row[ col_name ], false) }}
+        {{ thumbnail('images', row[ col_name ], false) }}
+    {% elseif col_name == 'thumb' %}
+        {{ thumbnail('thumbs', row[ col_name ], false) }}
     {% else %}
         {{ row[ col_name ] }}
     {% endif %}

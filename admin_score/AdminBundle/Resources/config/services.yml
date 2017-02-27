@@ -1,8 +1,4 @@
-parameters:
-#    sportsrush_users.example.class: SportsRush\UsersBundle\Example
-
 services:
-
-#    sportsrush_users.example:
-#        class: %sportsrush_users.example.class%
-#        arguments: [@service_id, "plain_value", %parameter%]
+#    museum_admin.example:
+#        class: Museum\AdminBundle\Example
+#        arguments: ["@service_id", "plain_value", "%parameter%"]

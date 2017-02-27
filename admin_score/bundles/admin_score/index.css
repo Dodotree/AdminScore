@@ -21,20 +21,61 @@
 }
 
 
+.thumbnail-frame{
+    display: inline-block;
+    position: relative;
+}
+.thumbnail{
+    display: block;
+    margin-right: 0;
+    min-width: 4rem; width: 4rem; max-width: 4rem;
+    min-height: 4rem; height: 4rem; max-height: 4rem;
+    background-color: #C0C0C0;
+    background-position: center center;
+    background-size: cover;
+}
+.thumbnail-frame .thumbnail{
+    min-width:  7rem; width: 7rem; max-width: 7rem;
+    min-height: 7rem; height: 7rem; max-height: 7rem;
+}
+    .thumbnail-frame input[type="checkbox"]{
+        opacity: 0;
+        position: absolute; /* to remove interference with layout */
+        width: 1px;
+        height: 1px;
+    }
+    .thumbnail-frame input[type=checkbox] + label:before {
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 0;
+        content: "";
+        width: 1.3rem;
+        height: 1.3rem;
+        font-size: 1rem;
+        background-color: #fff;
+        border: 0.5px solid rgba(0, 0, 0, 0.7);
+        color: #DD9F15;
+        text-align: center;
+    }
+    .thumbnail-frame input[type=checkbox]:checked + label:before {
+        content: "\2714";
+    }
+
+
 
     .db_column input[type="checkbox"]{
+        width: 1px;
         height: 1px;
         margin: 0 0 0 -6px;
         padding: 0;
         vertical-align: middle;
-        width: 1px;
         opacity: 0;
     }
     .db_column label{
         display: inline-block;
     }
-
-    input[type=checkbox] + label:before {
+    .db_column input[type=checkbox] + label:before {
         content: "";
         vertical-align: middle;
         font-size: 0.7rem;
@@ -43,7 +84,7 @@
         margin-left: -20px;
         position: absolute;
     }
-    input[type=checkbox]:checked + label:before {
+    .db_column input[type=checkbox]:checked + label:before {
         content: "\2714";
         margin-right:5px;
     }
@@ -408,22 +449,6 @@ img.logo{
     width: 100px;
 }
 
-.thumbnail{
-    margin-right: 0;
-    min-width: 4rem; width: 4rem; max-width: 4rem;
-    min-height: 4rem; height: 4rem; max-height: 4rem;
-    background-color: #C0C0C0;
-    background-position: center center;
-    background-size: cover;
-}
-
-.thumbnail-frame{
-    display: inline-block;
-}
-.thumbnail-frame .thumbnail{
-    min-width:  7rem; width: 7rem; max-width: 7rem;
-    min-height: 7rem; height: 7rem; max-height: 7rem;
-}
 
 .flash-card.danger {
   background-color: #d91636;

@@ -1,28 +1,29 @@
+
 admin_score_home:
     path:     /admin
-    defaults: { _controller: SportsRushAdminBundle:Default:tablesTab }
+    defaults: { _controller: MuseumAdminBundle:Home:tablesTab }
 
 admin_score_tables_tab:
     path:     /admin/tables
-    defaults: { _controller: SportsRushAdminBundle:Default:tablesTab }
+    defaults: { _controller: MuseumAdminBundle:Home:tablesTab }
 
 admin_score_classes_tab:
     path:     /admin/classes
-    defaults: { _controller: SportsRushAdminBundle:Default:classesTab }
+    defaults: { _controller: MuseumAdminBundle:Home:classesTab }
 
 admin_score_images_tab:
     path:     /admin/images
-    defaults: { _controller: SportsRushAdminBundle:Default:imagesTab }
+    defaults: { _controller: MuseumAdminBundle:Home:imagesTab }
 
 admin_score_video_tab:
     path:     /admin/video
-    defaults: { _controller: SportsRushAdminBundle:Default:videoTab }
+    defaults: { _controller: MuseumAdminBundle:Home:videoTab }
 
 admin_score_mail_tab:
     path:     /admin/mail
-    defaults: { _controller: SportsRushAdminBundle:Default:mailTab }
+    defaults: { _controller: MuseumAdminBundle:Home:mailTab }
 
 admin_score_claims_tab:
     path:     /admin/claims
-    defaults: { _controller: SportsRushAdminBundle:Default:claimsTab }
+    defaults: { _controller: MuseumAdminBundle:Home:claimsTab }
 

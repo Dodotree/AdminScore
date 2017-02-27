@@ -61,16 +61,16 @@
 
 <div class="flash-box"></div>
 
-<script src="/bower_components/jquery/jquery.js"></script>
+<script src="/bower_components/jquery/dist/jquery.js"></script>
 <script src="/bundles/admin_score/index.js"></script>
 </body>
 </html>
 
 
-{% macro thumbnail(url, externalBool) %}
+{% macro thumbnail(folder, url, externalBool) %}
     {% if externalBool %}
       <div class="thumbnail" style='background-image: url("{{ url }}")'></div>
     {% else %}
-      <div class="thumbnail" style='background-image: url("/uploads/images/{{ url }}")'></div>
+      <div class="thumbnail" style='background-image: url("/uploads/{{folder}}/{{url}}")'></div>
     {% endif %}
 {% endmacro %}
