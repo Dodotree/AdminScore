@@ -103,8 +103,29 @@ class HomeController extends Controller
 
     public function classesTabAction(Request $request)
     {
+        $em = $this->get('doctrine')->getManager();
+
+        $conn = $this->get('database_connection');
+        $sm = $conn->getSchemaManager();
+
+        $table_names = $sm->listTableNames();
+
+        $mapping = array();
+        $classes = $em->getMetadataFactory()->getAllMetadata();
+        //$classes = $em->getMetadataFactory()->getLoadedMetadata();
+        foreach( $classes as $class_name=>$class ){
+            $mapping[ $class->table['name'] ] = array( 'name'=>$class->name, 'rootEntityName' => $class->rootEntityName );
+
+            # foreach( $class->fieldMappings as $name => $field ){   $field['fieldName']  $field['columnName']
+
+            #$em->getClassMetadata('Entities\MyEntity')->getFieldNames();
+            #->getColumnNames()
+        }
+
+        foreach( $table_names as $name ){ if( !isset( $mapping[$name] ) ){  $mapping[$name] = array( 'name'=>'none', 'rootEntityName' => 'none' ); }}
+
         return $this->render('MuseumAdminBundle:Home:classes_tab.html.twig', array(
-        //    'tables' => $tables,
+            'mapping' => $mapping,
         ));
     }
 
@@ -189,13 +210,13 @@ class HomeController extends Controller
     private function createAdminTable($conn, $sm)
     {
         $em = $this->get('doctrine')->getManager();
-        $classes = $em->getMetadataFactory()->getLoadedMetadata();
+
+        $classes = $em->getMetadataFactory()->getAllMetadata();
         $mapping = array();
         foreach( $classes as $class_name=>$class ){
-            $mapping[ $class->table['name'] ] = $class_name;
-            #$em->getClassMetadata('Entities\MyEntity')->getFieldNames();
-            #->getColumnNames()
-        }
+            # foreach( $class->fieldMappings as $name => $field ){   $field['fieldName']  $field['columnName']
+            $mapping[ $class->table['name'] ] =  $class->rootEntityName; # $class->name  looks the same
+        } 
 
         $schema = new \Doctrine\DBAL\Schema\Schema();
         $tbl = $schema->createTable("appassionata_admin");

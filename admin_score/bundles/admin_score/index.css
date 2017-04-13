@@ -139,6 +139,7 @@
         width: 80rem;
     }
     .side-body{
+        min-height: 2000px;
         padding: 1rem;
     }
     .main-body{

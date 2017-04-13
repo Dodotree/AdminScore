@@ -38,7 +38,7 @@
                   <a class="delete_rows btn dark">Del Selected</a>
                 </h1>
 
-                {% if myTable.table.class %}
+                {% if myTable.table.class is defined %}
                 <h3>
                   <input type="checkbox"/>
                   {{ myTable.table.class }}
