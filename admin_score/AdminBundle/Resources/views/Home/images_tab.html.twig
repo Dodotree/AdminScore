@@ -1,0 +1,16 @@
+{% extends "VideoAdminBundle::admin.html.twig" %}
+
+    {% block sidebar %}
+    {% import _self as itself %}
+    {% endblock %}
+
+    {% block body %}
+    {% import _self as itself %}
+        {% for i, image in images %}
+            <div class="thumbnail-frame">
+              <input id="thumb{{i}}" type="checkbox"/>
+              <label title="{{image}}" for="thumb{{i}}" class="thumbnail" style='background-image: url("/{{ image }}")'></label>
+            </div>
+        {% endfor %}
+    {% endblock %}
+
