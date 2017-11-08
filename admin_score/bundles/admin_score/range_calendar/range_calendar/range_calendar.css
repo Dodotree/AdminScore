@@ -1,0 +1,104 @@
+.calendar-from,
+.calendar-to{
+    display: inline-block;
+    position: relative;
+}
+.calendar-from table,
+.calendar-to table{
+    position: absolute;
+    background-color: rgba(255,255,255,0.98);
+    display: none;
+}
+.calendar-from input,
+.calendar-to input{
+    width: 5rem;
+    text-align: center;
+}
+
+input.calendar-date-inp:focus +input+ table,
+input.calendar-date-inp:active +input+ table,
+input.calendar-date-inp:hover +input+ table,
+table:hover{
+    display: block;
+}
+
+.calendar-month-header{
+    line-height: 1.8rem;
+    font-size: 1rem;
+    vertical-align: middle;
+    color: #000;
+    letter-spacing: 2px;
+}
+.month-arrow{
+    border-top: 15px solid  #000;
+    border-bottom: 15px solid transparent;
+    width: 0; 
+    height: 0; 
+    opacity: 1;
+}
+.month-arrow:hover{
+    opacity: 0.5;
+}
+.month-prev{ 
+    float: left;
+    border-left: 15px solid #000;
+    border-right: 15px solid transparent;
+}
+.month-next{ 
+    float: right;
+    border-left: 15px solid transparent;
+    border-right: 15px solid #000;
+}
+.calendar-from table th,
+.calendar-to table th{
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    padding: 0.3rem;
+    text-align: center;    
+    border: none;
+}
+.calendar-from table td,
+.calendar-to table td{
+    padding: 0.4rem;
+    text-align: center;    
+    border: none;
+}
+
+td.today{
+    background-color: #000;
+    color: #fff;
+}
+td.not-in-month{
+    color: rgba(0,0,0,0.5);
+}
+td.today.not-in-month{
+    background-color: rgba(0,0,0,0.3);
+    color: #fff;
+}
+
+td:hover{
+    background-color: rgba(0,0,0,0.1);
+}
+td.today:hover{
+    background-color: rgba(0,0,0,0.7);
+}
+td.today.not-in-month:hover{
+    background-color: rgba(0,0,0,0.5);
+}
+
+td.data-in-range{
+    background-color: rgba(255,255,0,0.2);
+}
+.calendar-from td.data-in-range.range-start,
+.calendar-to td.data-in-range.range-end{
+    background-color: rgba(255,255,0,0.5);
+}
+td.data-in-range:hover{
+    background-color: rgba(175,175,0,0.2);
+}
+td.today.data-in-range{
+    background-color: rgba(75,75,0,0.8);
+}
+td.today.data-in-range:hover{
+    background-color: rgba(75,75,0,1);
+}

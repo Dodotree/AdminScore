@@ -123,3 +123,22 @@ function submit_delete(){
     });
 }
 
+function onNewQuery(col, query_type, val){
+    var params = getUrlParams();
+
+    if( 'sort' == query_type ){
+    }else if( 'equal' == query_type ){
+    }else if( 'like' == query_type ){
+    }else if( 'range' == query_type ){
+    }
+}
+
+function getUrlParams(){
+    var queryDict = {};
+    location.search.substr(1).split("&")
+        .forEach(function(item) {
+            var arr = item.split("=");
+            queryDict[arr[0]] = arr[1];
+        });
+return queryDict;
+}

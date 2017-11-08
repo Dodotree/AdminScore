@@ -1,4 +1,0 @@
-services:
-#    museum_admin.example:
-#        class: Museum\AdminBundle\Example
-#        arguments: ["@service_id", "plain_value", "%parameter%"]
