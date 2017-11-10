@@ -252,6 +252,10 @@
     td.fkey{
         background-color: rgba(108,181,217,0.22);
     }
+    th.associated,
+    td.associated{
+        background-color: rgba(181,217, 108,0.22);
+    }
 
 .btn {
     display: inline-block;
@@ -555,4 +559,68 @@ img.logo{
 
 th .ddn{
     border: 0 none;
+}
+
+
+.table-query{
+    font-size: 1rem;
+    font-family: Muli; 
+    border-left: 2px solid rgba(10, 20, 30, 0.11);
+    border-bottom: 2px solid rgba(10, 20, 30, 0.11);
+    padding: 1.3rem;
+}
+.query-param{
+    padding: .31rem;
+}
+.query-param:hover{
+    background-color:  rgba(0,0,0,0.05); 
+}
+.query-param>a.close{
+    opacity: 0;
+    color:  rgba(0,0,0,0.5);
+    font-size: 1.35rem;
+    margin-left: 0.7rem;
+    cursor: pointer;
+}
+.query-param:hover>a.close{
+    opacity: 1;
+}
+.query-param:hover>a.close:hover{
+    opacity: 1;
+    color:red;
+}
+.query-param .column{
+    font-weight: 700;
+}
+
+.query-param .order-span{
+    display: inline-block;
+    border-radius: 1rem;
+    padding: .1rem .3rem;
+    clear: both;
+    vertical-align: middle;
+}
+.query-param .order-span span,
+.query-param .order-span a{
+    display: inline-block;
+    padding: 0.3rem 0.5rem;
+    background-color: #6CB5D9;
+    color: #fff;
+    float:left;
+    line-height: 1;
+    cursor: pointer;
+}
+.query-param .order-span .column{
+    border-radius: 1rem 0 0 1rem ;
+}
+.query-param .order-span .close{
+    border-radius: 0 1rem 1rem 0;
+}
+.query-param .order-span a:hover{
+    background-color: #3E9AC8;
+}
+.table-query .btn{
+    margin-top: 1rem;
+    border-color: #3E9AC8;
+    color: #3E9AC8;
 }

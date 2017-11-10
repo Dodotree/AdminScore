@@ -24,6 +24,7 @@
     {% import _self as itself %}
     {% set route = app.request.attributes.get('_route') %}
             {% if myTable is not null %}
+              <form class="hidden" id="query-form"></form>
               <form class='my_table'>
                 <input type="hidden" name="my_table" value="{{myTable.name}}"/>
                 <h1>
@@ -40,7 +41,7 @@
 
                 {% if myTable.class is defined and myTable.class is not null %}
                 <h3>
-                  <input type="checkbox"/>
+                  <input type="checkbox" checked/>
                   {{ myTable.class }}
                 </h3>
                   <span class="help-span">check the box if you want to use the class functions instead of direct MySQL</span>
@@ -50,34 +51,90 @@
                 </h3>
                 {% endif %}
 
+                <div class="table-query">
+                  <div class="table-queries-list">
+                    {% if myTable.query.equal is defined %}
+                        {% for cl, vl in myTable.query.equal %}
+                            <div class="query-param equal-{{cl}}">
+                                <span class="column">{{ cl }}</span> = <input form="query-form" name="query[range][{{cl}}]" value="{{ vl }}"/>
+                                <a class="close">&times;</a>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    {% if myTable.query.range is defined %}
+                        {% for cl, vl in myTable.query.range %}
+                            <div class="query-param range-{{cl}}">
+                                <span class="column">{{ cl }}</span> between 
+                                <input form="query-form" name="query[range][{{cl}}][start]" value="{{ vl.start }}"/>
+                                and 
+                                <input form="query-form" name="query[range][{{cl}}][end]" value="{{ vl.end }}"/>
+                                <a class="close">&times;</a>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    {% if myTable.query.like is defined %}
+                        {% for cl, vl in myTable.query.like %}
+                            <div class="query-param like-{{cl}}">
+                                <span class="column">{{ cl }}</span> like <input form="query-form" name="query[like][{{cl}}]" value="{{ vl }}"/>
+                                <a class="close">&times;</a>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                  </div>
+
+                    {% if myTable.query.order is defined %}
+                        <div class="query-param  query-order-holder">
+                        Order by:
+                        {% for ind, qr in myTable.query.order %}
+                            {% for cl, vl in qr %}
+                                <span class="order-span order-{{cl}}">
+                                   <span class="column">{{ cl }}</span>
+                                   <input form="query-form" type="hidden" name="query[order][{{ind}}][{{cl}}]" value="{{ vl }}"/>
+                                   {% if vl == "DESC" %}
+                                        <a class="order-direction icon-arrow-circle-down"></a>
+                                   {% elseif vl == "ASC" %}
+                                        <a class="order-direction icon-arrow-circle-up"></a>
+                                   {% endif %}
+                                   <a class="close">&times;</a>
+                                </span>
+                            {% endfor %}
+                        {% endfor %}
+                        </div>
+                    {% endif %}
+
+                  <a class="search btn">Run Query</a>
+                </div>
+
                 {% set fkeys = myTable.fkeys %}
                 <table class="{{myTable.name}}">
                   <thead>
                     <tr>
                       <th><input class="select_all" type="checkbox"></th>
                 {% for col_name, column in myTable.columns %}
-                      <th class="{{col_name|replace({' ': '-'}) }}" data-type="{{ column.type }}">
+                      <th class="{{col_name|replace({' ': '-'}) }} {{column.assoc? 'associated':''}}" data-type="{{ column.type }}">
 
                         <div class="btn-group">
                             <span>
                                 {{ col_name }} 
                             </span>
-                            <div class="ddn panel-ddn double-action" data-id="0">
+                            <div class="ddn panel-ddn double-action" data-type="{{column.type}}" data-column="{{ col_name }}" data-order="">
                                 <a href="#" class="btn ddn-btn suffix">&#9662;</a>
                                 <div class="ddn-list item-types-list">
-                                    <a href="#" class="btn" data-id='1'>ASC <i class="icon-arrow-circle-up"></i></a>
-                                    <a href="#" class="btn active" data-id='0'>DESC <i class="icon-arrow-circle-down"></i></a>
-                                    <a href="#" class="btn" data-id='0'>Clear</a>
+                                    <a href="#" class="btn" data-order='ASC' >ASC <i class="icon-arrow-circle-up"></i></a>
+                                    <a href="#" class="btn" data-order='DESC'>DESC <i class="icon-arrow-circle-down"></i></a>
+                                    <a href="#" class="btn" data-order='clear'>Clear</a>
                                     <hr>
-                                    <a href="#" class="btn" data-id='0'>Find <i class="icon-search"></i></a>
-                                    {% if 'String' == column.type %}
-                                    <a href="#" class="btn" data-id='0'>Search <i class="icon-puzzle-piece"></i></a>
+                                    <a href="#" class="btn" data-order='' data-search="equal">Find <i class="icon-search"></i></a>
+                                    {% if 'string' == column.type %}
+                                    <a href="#" class="btn" data-order='' data-search="like">Search <i class="icon-puzzle-piece"></i></a>
                                     {% else %}
-                                    <a href="#" class="btn" data-id='0'>Range <i class="icon-filter"></i></a>
+                                    <a href="#" class="btn" data-order='' data-search="range">Range <i class="icon-filter"></i></a>
                                     {% endif %}
-                                    <a href="#" class="btn" data-id='0'>Clear</a>
+                                    <a href="#" class="btn" data-order='' data-search="clear">Clear</a>
                                     <hr>
-                                    <a href="#" class="btn" data-id='0'>
+                                    <a href="#" class="btn column-info-btn">
                                         Info:
                                         {{ column.assoc? (column.isOwningSide? 
                                                                 'owner ' ~ column.type_name ~ ' ' ~column.inversedBy: 
@@ -101,6 +158,14 @@
                         {% if column.assoc %}
 
                             <td class="associated" data-value="">
+
+                              {% if row[ col_name ].count > 1 %}
+                                  {% set tgt_col = column.mappedBy? column.mappedBy : column.inversedBy %}
+                                  <a href="{{path( route, {'table': column.table_name, ('eq['~tgt_col~']'): row['id']} )}}">
+                                    All({{row[ col_name ].count}})
+                                  </a>
+                              {% endif %}
+
                               {% for val in row[ col_name ].values %}
                                   <a href="{{path( route, {'table': column.table_name, ('eq['~column.target_id_col~']'): val} )}}">
                                     {{ val }}

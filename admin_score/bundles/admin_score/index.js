@@ -40,6 +40,179 @@ window.onload = function(e){
         }
     });
 
+    SearchQuery.init();
+
+};
+
+var SearchQuery = {
+
+    bind: function(){
+        $('.ddn.double-action .ddn-list>a').off('click').on('click', function(e){
+            e.preventDefault();
+            var ddn = $(this).closest(".ddn");
+            var a = $(this);
+            SearchQuery.setDdnValue( ddn, a );
+        });
+        $('.btn.search').off('click').on('click', function(e){
+            e.preventDefault();
+            var params = getUrlParams();
+            if( 'undefined' != typeof( params.table ) ){
+                var url = window.location.href.replace(/\?.*/,'').replace(/\#.*/,'');
+                window.location = url + '?table=' + params.table + '&' + $('#query-form').serialize();
+            }
+        });
+    },
+    
+    bind_inputs: function(){
+        $('.query-param a.close').off('click').on('click', function(e){
+            e.preventDefault();
+            $(this).closest('div').remove();
+            if( $(".query-param").length < 1 ){ $(".table-query").hide(); }
+        });
+        $('.order-span a.close').off('click').on('click', function(e){
+            e.preventDefault();
+            $(this).closest('.order-span').remove();
+            if( $('.query-order-holder .order-span').length <1 ){
+                $('.query-order-holder').remove();
+                if( $(".query-param").length < 1 ){ $(".table-query").hide(); }
+            }
+        });
+        $('.order-direction').off('click').on('click', function(e){
+            e.preventDefault();
+            $(this).toggleClass('icon-arrow-circle-up').toggleClass('icon-arrow-circle-down');
+            var inp = $(this).siblings('input');
+            inp.val( (inp.val()=='DESC')? 'ASC' : 'DESC' );
+        });
+    },
+    
+    init: function(){
+        if( $(".query-param").length < 1 ){ $(".table-query").hide(); }
+        SearchQuery.bind();
+        SearchQuery.bind_inputs();
+    },
+
+    setDdnValue: function(ddn, a){
+        if( !a || a.hasClass('column-info-btn')){ return; }
+
+        var col_name = ddn.data('column');
+        var direction = a.data('order');
+
+        ddn.find(".ddn-list a").removeClass("active");
+
+        if(''== direction){
+            var search_type= a.data('search');
+            if('clear'== search_type){
+            }else if('equal'== search_type){
+                SearchQuery.addEqualNode(col_name);
+            }else if('like'== search_type){
+                SearchQuery.addLikeNode(col_name);
+            }else if('range'== search_type){
+                SearchQuery.addRangeNode(col_name, ddn.data('type'));
+            }
+        }else if('clear'== direction){
+        }else{
+            ddn.data('order', direction);
+            a.addClass("active");
+            ddn.find(".ddn-btn").html( (('DESC' == direction)? '<i class="order-direction icon-arrow-circle-down"></i>':
+                                          '<i class="order-direction icon-arrow-circle-up"></i>') 
+                                       + " &#9662;" );
+            SearchQuery.addOrderNode(col_name, direction );
+        }
+
+    },
+
+    setDdnAppearenceById: function( ddn, id ){
+        var a_li = ddn.find(".ddn-list a");
+        var a = null;
+        a_li.each(function(i,o){ if( $(o).data('id') == id ){ a = $(o); } });
+        SearchQuery.setDdnValue(ddn, a);
+    },
+
+    addEqualNode: function( col_name ){
+        if( $('.equal-'+ col_name).length >0 ){ return; }
+        $('<div class="query-param equal-'+ col_name +'">'
+            + '<span class="column">' + col_name 
+                + '</span> = <input form="query-form" name="query[equal][' + col_name + ']" value=""/>'
+            + '<a class="close">&times;</a>'
+        + '</div>').appendTo($(".table-queries-list"));
+
+        SearchQuery.bind_inputs();
+        $(".table-query").show();
+    },
+
+    addRangeNode: function(col_name, data_type){
+        if( $('.range-'+ col_name).length >0 ){ return; }
+        if( 'datetime' == data_type ){ SearchQuery.addDateRangeNode(col_name); return; }
+        $('<div class="query-param range-'+ col_name +'">'
+            + '<span class="column">' + col_name + '</span> between '
+            + '<input form="query-form" name="query[range][' + col_name + '][start]" value=""/>'
+            + ' and '
+            + '<input form="query-form" name="query[range][' + col_name + '][end]" value=""/>'
+            + '<a class="close">&times;</a>'
+        + '</div>').appendTo($(".table-queries-list"));
+
+
+        SearchQuery.bind_inputs();
+        $(".table-query").show();
+    },
+
+    addDateRangeNode: function(col_name){
+        var node = $('<div class="query-param range-'+ col_name +'">'
+            + '<span class="column">' + col_name + '</span> '
+            + '<input form="query-form" class="query-date-start" type="hidden" name="query[range][' + col_name + '][start]" value=""/>'
+            + '<input form="query-form" class="query-date-end" type="hidden" name="query[range][' + col_name + '][end]" value=""/>'
+            + '<span class="range-calendar-holder"></span>'
+            + '<a class="close">&times;</a>'
+        + '</div>').appendTo($(".table-queries-list"));
+        var pa = node.find(".range-calendar-holder");
+        new RangeCalendar({'pa': pa, 'callback': SearchQuery.setDateRangeInput });
+        SearchQuery.bind_inputs();
+        $(".table-query").show();
+    },
+
+    addLikeNode: function(col_name){
+        if( $('.like-'+ col_name).length >0 ){ return; }
+        $('<div class="query-param like-'+ col_name +'">'
+            + '<span class="column">' + col_name + '</span> like <input form="query-form" name="query[like][' + col_name + ']" value=""/>'
+            + '<a class="close">&times;</a>'
+        + '</div>').appendTo($(".table-queries-list"));
+
+        SearchQuery.bind_inputs();
+        $(".table-query").show();
+    },
+
+    addOrderNode: function(col_name, direction){
+        var holder = $(".query-order-holder");
+        if( holder.length < 1 ){
+            holder = $('<div class="query-param  query-order-holder"> Order by:</div>')
+                .appendTo($(".table-queries-list"));
+        }
+
+        var ind = holder.find(".order-span").length;
+
+        if( $('.order-'+ col_name).length >0 ){
+            node = $('.order-'+ col_name).remove();
+        }
+        holder.append( '<span class="order-span order-'+ col_name +'">'
+           + '<span class="column">' + col_name + '</span>'
+           + '<input form="query-form" type="hidden" name="query[order][' + ind + '][' + col_name+ ']" value="' + direction + '"/>'
+           + ( ('DESC' == direction)? '<a class="order-direction icon-arrow-circle-down"></a>':
+                                       '<a class="order-direction icon-arrow-circle-up"></a>')
+           + '<a class="close">&times;</a>'
+        + '</span>');
+
+        SearchQuery.bind_inputs();
+        $(".table-query").show();
+    },
+
+    setDateRangeInput: function(range){
+        var inp_start = range.pa.siblings(".query-date-start");
+        var inp_end = range.pa.siblings(".query-date-end");
+        inp_start.val( range.from.format('Y-MM-DD HH:mm:ss'));
+        inp_end.val( range.to.format('Y-MM-DD HH:mm:ss'));
+console.log(range.from.format('Y-MM-DD HH:mm:ss'), range.to.format('Y-MM-DD HH:mm:ss') );
+    }
+
 };
 
 var flashCard = {

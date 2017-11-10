@@ -281,47 +281,57 @@ class HomeController extends Controller
             $where_bool = false;
             $get_query = array();
 
-            if( isset($_GET['eq']) ){
-                $get_query[] = $_GET['eq'];
-                $pairs = array();
-                foreach( $_GET['eq'] as $col_name=>$val ){
-                    if( $where_bool ){
-                        $qb->andWhere("i.$col_name = $val");
-                    }else{
-                        $qb->where("i.$col_name = $val");
-                        $where_bool = true;
+            if(isset($_GET['query'])){
+                $args = $_GET['query']; 
+
+                if( isset($args['equal']) ){
+                    $get_query['equal'] = $args['equal'];
+                    $pairs = array();
+                    foreach( $args['equal'] as $col_name=>$val ){
+                        if( $where_bool ){
+                            $qb->andWhere("i.$col_name = $val");
+                        }else{
+                            $qb->where("i.$col_name = $val");
+                            $where_bool = true;
+                        }
                     }
                 }
-            }
 
-            if( isset($_GET['range']) ){
-                $get_query[] = $_GET['range'];
-                foreach( $_GET['range'] as $col_name=>$range ){
-                    if( $where_bool ){
-                        $qb->andWhere( $qb->expr()->between("i.$col_name", $range['start'], $range['end']) );
-                    }else{
-                        $qb->where( $qb->expr()->between("i.$col_name", $range['start'], $range['end']) );
-                        $where_bool = true;
+                if( isset($args['range']) ){
+                    $get_query['range'] = $args['range'];
+                    foreach( $args['range'] as $col_name=>$range ){
+                        if( $where_bool ){
+                            $qb->andWhere( $qb->expr()->between("i.$col_name", 
+                                $qb->expr()->literal($range['start']), 
+                                $qb->expr()->literal($range['end'])) );
+                        }else{
+                            $qb->where( $qb->expr()->between("i.$col_name", 
+                                $qb->expr()->literal($range['start']),
+                                $qb->expr()->literal($range['end'])) );
+                            $where_bool = true;
+                        }
                     }
                 }
-            }
 
-            if( isset($_GET['like']) ){
-                $get_query[] = $_GET['like'];
-                foreach( $_GET['like'] as $col_name=>$like ){
-                    if( $where_bool ){
-                        $qb->andWhere( $qb->expr()->like("i.$col_name", $like) );
-                    }else{
-                        $qb->where( $qb->expr()->like("i.$col_name", $like) );
-                        $where_bool = true;
+                if( isset($args['like']) ){
+                    $get_query['like'] = $args['like'];
+                    foreach( $args['like'] as $col_name=>$like ){
+                        if( $where_bool ){
+                            $qb->andWhere( $qb->expr()->like("i.$col_name",  $qb->expr()->literal('%' . $like . '%')) );
+                        }else{
+                            $qb->where( $qb->expr()->like("i.$col_name", $qb->expr()->literal('%' . $like . '%')) );
+                            $where_bool = true;
+                        }
                     }
                 }
-            }
 
-            if( isset($_GET['order']) ){
-                $get_query[] = $_GET['order'];
-                foreach( $_GET['order'] as $priority=>$order ){
-                    $qb->orderBy("i.{$order['col']}", $order['direction']);
+                if( isset($args['order']) ){
+                    $get_query['order'] = $args['order'];
+                    foreach( $args['order'] as $priority=>$order ){
+                        foreach( $order as $col_name=>$direction ){
+                            $qb->orderBy("i.$col_name", $direction);
+                        }
+                    }
                 }
             }
 
@@ -346,12 +356,17 @@ class HomeController extends Controller
                         $target_getter = $col["target_id_getter"];
                         $arr = array('id_name'=>$col["target_id_col"], 'values'=> array());
                         if( get_class($val) == 'Doctrine\ORM\PersistentCollection' ){
+                            $i = 0;
+                            $arr['count'] = count($val);
                             foreach( $val as $v ){
                                 $arr['values'][] = $v->$target_getter();
+                                if( $i++ > 10){ break; }
                             }
                         }elseif( get_class($val) == $col['targetEntity'] ){
+                            $arr['count'] = 1;
                             $arr['values'][] = $val->$target_getter();
-                        }else{ ## should be Proxy
+                        }elseif( $val ){ ## should be Proxy
+                            $arr['count'] = 1;
                             $arr['values'][] = $val->$target_getter();
                         }
                         $row[$name] = $arr;
@@ -384,7 +399,7 @@ class HomeController extends Controller
             $get_query = array();
 
             if( isset($_GET['eq']) ){
-                $get_query[] = $_GET['eq'];
+                $get_query['eq'] = $_GET['eq'];
                 $pairs = array();
                 foreach( $_GET['eq'] as $col_name=>$val ){
                     $pairs[] = "$col_name=$val";
@@ -397,7 +412,7 @@ class HomeController extends Controller
             }
 
             if( isset($_GET['range']) ){
-                $get_query[] = $_GET['range'];
+                $get_query['range'] = $_GET['range'];
                 $pairs = array();
                 foreach( $_GET['range'] as $col_name=>$range ){
                     $pairs[] = "$col_name BETWEEN '{$range['start']}' AND '{$range['end']}'";
@@ -413,7 +428,7 @@ class HomeController extends Controller
             }
 
             if( isset($_GET['order']) ){
-                $get_query[] = $_GET['order'];
+                $get_query['order'] = $_GET['order'];
                 if( count($_GET['order'])>0 ){
                     $pairs_str = implode(', ', $_GET['order']);
                     $query .= " ORDER BY  $pairs_str ";
