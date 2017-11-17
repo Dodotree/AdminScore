@@ -3,17 +3,21 @@
     {% block sidebar %}
     {% import _self as itself %}
         <div class="side-body coffee">
+          <a class="refresh btn dark">Refresh Preferences</a>
+          <br>
+          <br>
+          <a class="save btn">Save Preferences</a>
+          <br>
+          <br>
             <form class="prefs">
             <input type="hidden" name="prefs_form" value="1" />
             {% set route = app.request.attributes.get('_route') %}
             <ul class="side-list">
-              {% if myTable is not null %}
-                {{- itself.side_item(tables[myTableId], prefs[ myTable.name ], 'open', route) -}}
+              {% if myTableName is not null %}
+                {{- itself.side_item(tables[myTableName], 'open', route) -}}
               {% endif %}
-              {% for table in tables if myTable is null or myTable.name != table.name %}
-                {% if prefs[ table.getName() ] is defined %}
-                  {{- itself.side_item(table, prefs[ table.getName() ], '', route) -}}
-                {% endif %}
+              {% for table in tables if myTable is null or myTable.table.name != table.name %}
+                  {{- itself.side_item(table, '', route) -}}
               {% endfor %}
             </ul>
             </form>
@@ -26,11 +30,9 @@
             {% if myTable is not null %}
               <form class="hidden" id="query-form"></form>
               <form class='my_table'>
-                <input type="hidden" name="my_table" value="{{myTable.name}}"/>
+                <input type="hidden" name="my_table" value="{{myTable.table.name}}"/>
                 <h1>
-                  {{myTable.name}}
-                  <a class="save btn">Save Preferences</a>
-                  <a class="refresh btn dark">Refresh Preferences</a>
+                  {{myTable.table.name}}
                   <a class="add btn">Add</a>
                   <a class="edit btn">Edit</a>
                   <span class="edit-save-span hidden">
@@ -39,10 +41,10 @@
                   <a class="delete_rows btn dark">Del Selected</a>
                 </h1>
 
-                {% if myTable.class is defined and myTable.class is not null %}
+                {% if myTable.table.class is defined and myTable.table.class != '' %}
                 <h3>
                   <input type="checkbox" checked/>
-                  {{ myTable.class }}
+                  {{ myTable.table.class }}
                 </h3>
                   <span class="help-span">check the box if you want to use the class functions instead of direct MySQL</span>
                 {% else %}
@@ -56,7 +58,7 @@
                     {% if myTable.query.equal is defined %}
                         {% for cl, vl in myTable.query.equal %}
                             <div class="query-param equal-{{cl}}">
-                                <span class="column">{{ cl }}</span> = <input form="query-form" name="query[range][{{cl}}]" value="{{ vl }}"/>
+                                <span class="column">{{ cl }}</span> = <input form="query-form" name="query[equal][{{cl}}]" value="{{ vl }}"/>
                                 <a class="close">&times;</a>
                             </div>
                         {% endfor %}
@@ -86,7 +88,7 @@
 
                     {% if myTable.query.order is defined %}
                         <div class="query-param  query-order-holder">
-                        Order by:
+                        <b>Order by:</b>
                         {% for ind, qr in myTable.query.order %}
                             {% for cl, vl in qr %}
                                 <span class="order-span order-{{cl}}">
@@ -107,19 +109,20 @@
                   <a class="search btn">Run Query</a>
                 </div>
 
-                {% set fkeys = myTable.fkeys %}
-                <table class="{{myTable.name}}">
+                <table class="{{myTable.table.name}}">
                   <thead>
                     <tr>
                       <th><input class="select_all" type="checkbox"></th>
-                {% for col_name, column in myTable.columns %}
-                      <th class="{{col_name|replace({' ': '-'}) }} {{column.assoc? 'associated':''}}" data-type="{{ column.type }}">
+                {% for field in myTable.table.fields %}
+                      {% set assoc_class = (field.is_association)? ((field.imaginary)? 'imaginary' : 'fkey' ) : '' %}
+                      <th class="{{field.col|replace({' ': '-'}) }} {{assoc_class}}" data-type="{{ field.type }}">
 
                         <div class="btn-group">
-                            <span>
-                                {{ col_name }} 
-                            </span>
-                            <div class="ddn panel-ddn double-action" data-type="{{column.type}}" data-column="{{ col_name }}" data-order="">
+                            <div class="column-th-names">
+                                <div class="field-name"> {{ field.field }} </div>
+                                <div class="column-name"> {{ field.col }} </div>
+                            </div>
+                            <div class="ddn panel-ddn double-action" data-type="{{field.type}}" data-column="{{ field.field }}" data-order="">
                                 <a href="#" class="btn ddn-btn suffix">&#9662;</a>
                                 <div class="ddn-list item-types-list">
                                     <a href="#" class="btn" data-order='ASC' >ASC <i class="icon-arrow-circle-up"></i></a>
@@ -127,19 +130,21 @@
                                     <a href="#" class="btn" data-order='clear'>Clear</a>
                                     <hr>
                                     <a href="#" class="btn" data-order='' data-search="equal">Find <i class="icon-search"></i></a>
-                                    {% if 'string' == column.type %}
-                                    <a href="#" class="btn" data-order='' data-search="like">Search <i class="icon-puzzle-piece"></i></a>
+                                    {% if 'string' == field.type %}
+                                        <a href="#" class="btn" data-order='' data-search="like">Search <i class="icon-puzzle-piece"></i></a>
                                     {% else %}
-                                    <a href="#" class="btn" data-order='' data-search="range">Range <i class="icon-filter"></i></a>
+                                        <a href="#" class="btn" data-order='' data-search="range">Range <i class="icon-filter"></i></a>
                                     {% endif %}
                                     <a href="#" class="btn" data-order='' data-search="clear">Clear</a>
                                     <hr>
                                     <a href="#" class="btn column-info-btn">
                                         Info:
-                                        {{ column.assoc? (column.isOwningSide? 
-                                                                'owner ' ~ column.type_name ~ ' ' ~column.inversedBy: 
-                                                                column.type_name ~ ' ' ~ column.mappedBy): 
-                                                col_name }}
+                                        {% if field.is_association %}
+                                            {{ field.is_owner? 'owner ':'' }}
+                                            {{ field.association_name }} 
+                                        {% else %}
+                                             {{ field.field }} {{ field.col }}
+                                        {% endif %}
                                     </a>
                                 </div>
                             </div>
@@ -152,31 +157,13 @@
                   <tbody>
                 {% for row in myTable.rows %}
                     <tr class="abc">
-                      {% set row_id=(row['id'] is defined)? row['id'] : '' %}
-                      <td class="select_row"><input type="checkbox" name="rows[{{row_id}}]"></td>
-                    {% for  col_name, column in  myTable.columns %}
-                        {% if column.assoc %}
 
-                            <td class="associated" data-value="">
+                      <td class="select_row"><input type="checkbox" name="rows[{{myTable.table.prim}}]"></td>
 
-                              {% if row[ col_name ].count > 1 %}
-                                  {% set tgt_col = column.mappedBy? column.mappedBy : column.inversedBy %}
-                                  <a href="{{path( route, {'table': column.table_name, ('eq['~tgt_col~']'): row['id']} )}}">
-                                    All({{row[ col_name ].count}})
-                                  </a>
-                              {% endif %}
+                      {% for  field_name, field in  myTable.table.fields %}
+                            {{- itself.table_cell( myTable.table, row, field, route) -}}
+                      {% endfor %}
 
-                              {% for val in row[ col_name ].values %}
-                                  <a href="{{path( route, {'table': column.table_name, ('eq['~column.target_id_col~']'): val} )}}">
-                                    {{ val }}
-                                  </a>
-                              {% endfor %}
-                            </td>
-
-                        {% else %}
-                            {{- itself.table_cell( col_name, column.type, fkeys, row, route) -}}
-                        {% endif %}
-                    {% endfor %}
                     </tr>
                 {% endfor %}
                   </tbody>
@@ -185,7 +172,7 @@
 
               {% if myTable.show_pagination_bool %}
               <div class="pagination">
-                {{ knp_pagination_render(myTable.rows) }}
+                {{ knp_pagination_render(myTable.pagination) }}
               </div>
               {% endif %}
 
@@ -193,67 +180,69 @@
 
     {% endblock %}
 
-{% macro table_cell(col_name, type, fkeys, row, route) %}
+{% macro table_cell(tbl, row, field, route) %}
 {% import _self as itself %}
-  {% if fkeys[col_name] is defined %}
-    {% set classes=col_name|replace({' ': '-'}) ~ ' fkey' %}
-    {% set fkey = fkeys[col_name] %}
-    <td class="{{classes}}" data-value="{{row[ col_name ]}}">
-      <a href="{{path( route, {'table':fkey['table'], ('eq['~fkey['col']~']'): row[ col_name ]} )}}">
-        {{- itself.table_cell_inside(col_name, row, type) -}}
-      </a>
+
+    <td class="{{ row[field.col].col_class }}" data-value="{{ row[field.col].value }}">
+
+        {% if field.is_association %}
+
+              {% if row[ field.col ].count is defined and row[ field.col ].count > 1 %}
+                  {% set tgt_col = field.tgt_col_name %}
+                  <a href="{{path( route, {'table': field.tgt_table_name, ('query[equal]['~tgt_col~']'): row[tbl.prim].value} )}}">
+                    All({{row[ field.col ].count}})
+                  </a>
+              {% endif %}
+
+              {% for val in row[ field.col ].values %}
+                  <a href="{{path( route, {'table': field.tgt_table_name, ('query[equal]['~field.tgt_table_prim~']'): val} )}}">
+                    {{ val }}
+                  </a>
+              {% endfor %}
+
+        {% else %}
+            {{- itself.table_cell_inside(field, row[field.col].value) -}}
+        {% endif %}
     </td>
-  {% else %}
-    {% set classes=col_name|replace({' ': '-'}) %}
 
-    {% if row[ col_name ]  is iterable %}
-    <td>{{ row[ col_name ]|join(', ')  }}</td>
-    {% else %}
-    <td class="{{classes}}" data-value="{{ ('datetime' != type)? row[ col_name ] : row[ col_name ]|date}}">
-        {{- itself.table_cell_inside(col_name, row, type) -}}
-    </td>
-    {% endif %}
-
-
-  {% endif %}
 {% endmacro %}
 
 
-{% macro table_cell_inside(col_name, row, type) %}
+{% macro table_cell_inside(field, val) %}
 {% from "VideoAdminBundle::admin.html.twig" import thumbnail %}
 {% import _self as itself %}
-    {% if col_name == 'avatar' %}
-        {{ thumbnail('', row[ col_name ], true) }}
-    {% elseif col_name == 'youtube' %}
-        {{ thumbnail('', 'https://i.ytimg.com/vi/' ~ row[ col_name ] ~ '/mqdefault.jpg', true) }}
-    {% elseif col_name == 'image' %}
-        {{ thumbnail('images', row[ col_name ], false) }}
-    {% elseif col_name == 'thumb' %}
-        {{ thumbnail('thumbs', row[ col_name ], false) }}
+    {% if field.is_association %}
+        <a href="{{path( route, {'table': field.tgt_table, ('query[equal]['~field.tgt_field~']'): val} )}}">
+          {{- val -}}
+        </a>
+    {% elseif field.col == 'avatar' %}
+        {{ thumbnail('', val, true) }}
+    {% elseif field.col == 'youtube' %}
+        {{ thumbnail('', 'https://i.ytimg.com/vi/' ~ val ~ '/mqdefault.jpg', true) }}
+    {% elseif field.col == 'image' %}
+        {{ thumbnail('images', val, false) }}
+    {% elseif field.col == 'thumb' %}
+        {{ thumbnail('thumbs', val, false) }}
     {% else %}
-        {{ ('datetime' != type)? row[ col_name ] : row[ col_name ]|date }}
+        {{val}}
     {% endif %}
 {% endmacro %}
 
-{% macro side_item(table, checks, additionalClass, route) %}
+{% macro side_item(table, additionalClass, route) %}
     <li class="db_table {{additionalClass-}}">
-        {% set table_name = table.getName() %}
-        {% set columns=table.getColumns() %}
-        {% set fkeys = table.fkeys %}
         <a class="expand-btn" href="#"></a>
-        <a href="{{path( route, {'table': table_name} )}}">
-            {{- table_name }}
-            {{ (table.class is defined)? '<i class="icon-cube"></i>' : '' -}}
+        <a href="{{path( route, {'table': table.name} )}}">
+            {{- table.name }}
+            {{ (table.class is defined and table.class != '')? '<i class="icon-cube"></i>' : '' -}}
         </a>
         <ul class="side-list">
-        {% for column in columns %}
-            {% set col_name = column.getName() %}
+        {% for field in table.fields %}
             <li class="db_column">
-              <input id="{{table_name}}_{{col_name}}" name="{{table_name}}[{{col_name}}]" type="checkbox" {{ ( checks[ col_name ] is defined )? 'checked' : '' }}>
-              <label for="{{- table_name -}}_{{- col_name -}}">
-                <span class="col_name">{{- col_name -}}</span>
-                <span class="faded">{{ column.getType() }}</span>
-                {{ (fkeys[col_name] is defined)? '<i class="icon-key faded"></i>' : '' }}
+              <input id="{{table.name}}_{{field.col}}" data-col="{{field.col}}" name="{{table.name}}[{{field.col}}]" type="checkbox" {{ (field.is_on == 1)? 'checked' : '' }}>
+              <label for="{{- table.name -}}_{{- field.col -}}">
+                <span class="{{field.col}}">{{- field.col -}}</span>
+                <span class="faded">{{ field.type }}</span>
+                {{ (field.is_association)? ((not field.imaginary)? '<i class="icon-key faded"></i>': '<i class="icon-cubes faded"></i>' ): '' }}
               </label>
             </li>
         {% endfor %}

@@ -37,55 +37,63 @@ class HomeController extends Controller
             return $this->json( array('errors'=>'List of rows is empty') );
         }
 
-        if( !$sm->tablesExist(array('appassionata_admin')) ){
-            self::createAdminTable($conn, $sm);
+        if( !$sm->tablesExist(array('appassionata_admin_tabl')) ){
+            self::refreshAdminTable($conn, $sm);
         }
 
-        $statement = $conn->prepare('SELECT * FROM appassionata_admin');
+#Select genre, group_concat(film) films
+#    from Genre
+#    inner join film on film.genrID=genre.genreID
+#    group by Genre.genreID, genre
+#    order by genre,films ASC
+
+        $statement = $conn->prepare("SELECT * "
+            ." FROM appassionata_admin_tables as t inner join  appassionata_admin_fields as f on f.table_name = t.name ");
         $statement->execute();
-        $result = $statement->fetchAll();
-        $prefs = array_column($result,'columns','name');
-        foreach( $prefs as $a=>&$b ){ $b = unserialize($b); }
-        $classes = array_column($result,'class','name');
-
-        $tables = $sm->listTables();
-        $reverse_ind = array();
-        foreach( $tables as $i=>$table ){
-            $table_name = $table->getName();
-            $reverse_ind[ $table_name ] = $i;
-            if( isset( $classes[ $table_name ] )){
-                $table->class = $classes[ $table_name ];
-            }
-            $table->fkeys = array();
-            $foreignKeys = $sm->listTableForeignKeys( $table_name );
-            foreach ($foreignKeys as $foreignKey) {
-                $cols = $foreignKey->getLocalColumns();
-                $fcols = $foreignKey->getForeignColumns();
-                $table->fkeys[$cols[0]] = array('table'=>$foreignKey->getForeignTableName(),
-                                                'col' => $fcols[0]);
-            }
-        }
+        $res = $statement->fetchAll();
+#var_dump($res);
+        $tables = $this->getAssocTable($res);
+#var_dump($tables);
 
         $myTable = null;
-        if( isset($_GET['table']) ){
-            $table_name = $_GET['table'];
-            $one_table =  $tables[ $reverse_ind[$table_name] ];
-            
-            if( isset($one_table->class) ){
-                $myTable = $this->getTableByClass($table_name, $one_table, $request);
+        $table_name = isset($_GET['table'])? $_GET['table'] : null;
+        if( $table_name ){
+            if( '' != $tables[$table_name]['class'] ){
+                $myTable = $this->getTableByClass($table_name, $tables[$table_name], $conn, $request);
             }else{
-                $myTable = $this->getTableByMySQL($table_name, $one_table, $conn, $request);
+                $myTable = $this->getTableByMySQL($table_name, $tables[$table_name], $conn, $request);
             }
-
         }
-
+#var_dump($myTable['rows']);
         return $this->render('VideoAdminBundle:Home:tables_tab.html.twig', array(
             'tables' => $tables,
-            'myTableId' =>  ($myTable)? $reverse_ind[$table_name] : null,
+            'myTableName' => $table_name,
             'myTable'=> $myTable, 
-            'prefs'  => $prefs,
+            'prefs'  => $tables,
         ));
     }
+
+    public function getAssocTable($res){
+        $info = array();
+        foreach($res as $item){
+            $table_name = $item['name'];
+            if( !$table_name or '' == $table_name){ continue; }
+            if( !isset($info[$table_name]) ){ 
+                $info[$table_name]=array(
+                    'name'=>$item['name'],
+                    'class'=>$item['class'],
+                    'identifier'=>$item['identifier'],
+                    'prim'=>$item['prim'],
+                    'fields'=>array(),
+                );
+            }
+            unset($item['name']); unset($item['class']); unset($item['identifier']); unset($item['prim']);
+
+            $info[$table_name]['fields'][$item['field']] = $item;
+        }
+    return $info;
+    }
+
 
     public function classesTabAction(Request $request)
     {
@@ -146,18 +154,23 @@ class HomeController extends Controller
 
     private function setPrefs($conn, $sm, $prefs)
     {
-        $tables = $sm->listTables();
-        $stmt = $conn->prepare('UPDATE appassionata_admin SET columns=:columns WHERE name=:name');
+        unset($prefs['prefs_form']); #the rest are tables
         $errs = array();
-        foreach( $tables as $table ){
-            $table_name = $table->getName();
-            $serialized_hash = ( isset($prefs[$table_name]) )? serialize($prefs[$table_name]) : serialize(null);
-            $stmt->bindParam('name', $table_name);
-            $stmt->bindParam('columns', $serialized_hash);
-
-            if( !$stmt->execute() ){ $errs[] = $stmt->error; }
+        $stmt_clear = $conn->prepare('UPDATE appassionata_admin_fields SET is_on=0');
+        if( !$stmt_clear->execute() ){ $errs[] = $stmt_clear->error; }
+        $stmt = $conn->prepare("UPDATE appassionata_admin_fields SET is_on=1 WHERE( table_name=:table_name and col=:col )");
+        foreach( $prefs as $table_name=>$table ){
+            foreach($table as $col_name=>$col){
+                $stmt->bindParam('table_name', $table_name);
+                $stmt->bindParam('col', $col_name);
+                if( !$stmt->execute() ){ $errs[] = $stmt->error; }
+            }
         }
-    return ( count($errs)>0 )? array('errors'=> $errs) : array('successes'=>'done');
+        
+        # $stmt = $conn->prepare("select is_on from appassionata_admin_fields where table_name='video_users'");
+        # $stmt->execute();
+        # $res= $stmt->fetchAll();
+    return ( count($errs)>0 )? array('errors'=>'done') : array('successes'=>$res);
     }
 
 
@@ -187,7 +200,15 @@ class HomeController extends Controller
     {
         $fromSchema = $sm->createSchema();
         $dropSchema = clone $fromSchema;
-        $dropSchema->dropTable("appassionata_admin");
+        if( $sm->tablesExist(array( "appassionata_admin")) ){
+            $dropSchema->dropTable("appassionata_admin");
+        }
+        if( $sm->tablesExist(array( "appassionata_admin_tables")) ){
+            $dropSchema->dropTable("appassionata_admin_tables");
+        }
+        if( $sm->tablesExist(array( "appassionata_admin_fields")) ){
+            $dropSchema->dropTable("appassionata_admin_fields");
+        }
         $queries = $fromSchema->getMigrateToSql($dropSchema, $conn->getDatabasePlatform());
         foreach ($queries as $sql) { $conn->exec($sql); }
         self::createAdminTable($conn, $sm);
@@ -197,6 +218,46 @@ class HomeController extends Controller
     {
         $em = $this->get('doctrine')->getManager();
 
+        $schema = new \Doctrine\DBAL\Schema\Schema();
+        $tbl = $schema->createTable("appassionata_admin_tables");
+        $tbl->addColumn("name", "string", array("length" => 32, 'unique'=>true));
+        $tbl->addColumn("class", "string", array("length" => 256, "notnull" => false));
+        $tbl->addColumn("identifier", "string", array("length" => 32, "notnull" => false));
+        $tbl->addColumn("prim", "string", array("length" => 32, "notnull" => false));
+        $tbl->setPrimaryKey(array("name"));
+
+        $ctbl = $schema->createTable("appassionata_admin_fields");
+        $ctbl->addColumn("id", "integer", array("unsigned" => true, "autoincrement" => true));
+        $ctbl->addColumn("table_name", "string", array("length" => 64));
+        $ctbl->addColumn("field",  "string", array("length" => 64, "notnull" => false));
+        $ctbl->addColumn("col",    "string", array("length" => 64, "notnull" => false));
+        $ctbl->addColumn("type",    "string", array("length" => 64, "notnull" => false));
+        $ctbl->addColumn("getter", "string", array("length" => 100, "notnull" => false));
+        $ctbl->addColumn("setter", "string", array("length" => 100, "notnull" => false));
+        $ctbl->addColumn("is_nullable",       "integer", array("notnull" => false));
+        $ctbl->addColumn("is_unique",         "integer", array("notnull" => false));
+        $ctbl->addColumn("is_on",          "integer", array("notnull" => false));
+        $ctbl->addColumn("imaginary",      "integer", array("notnull" => false));
+        $ctbl->addColumn("is_association", "integer", array("notnull" => false));
+        $ctbl->addColumn("association_name", "string", array("length" => 64, "notnull" => false));
+        $ctbl->addColumn("is_owner",      "integer", array("notnull" => false));
+        $ctbl->addColumn("is_single",     "integer", array("notnull" => false));
+        $ctbl->addColumn("is_collection", "integer", array("notnull" => false));
+        $ctbl->addColumn("tgt_class_name", "string", array("length" => 64, "notnull" => false));
+        $ctbl->addColumn("tgt_table_name", "string", array("length" => 64, "notnull" => false));
+        $ctbl->addColumn("tgt_table_prim", "string", array("length" => 64, "notnull" => false));
+        $ctbl->addColumn("tgt_table_identifier", "string", array("length" => 64, "notnull" => false));
+        $ctbl->addColumn("tgt_table_id_getter", "string", array("length" => 64, "notnull" => false));
+        $ctbl->addColumn("tgt_field_name", "string", array("length" => 64, "notnull" => false));
+        $ctbl->addColumn("tgt_field_getter", "string", array("length" => 64, "notnull" => false));
+        $ctbl->addColumn("tgt_col_name",   "string", array("length" => 64, "notnull" => false));
+        $ctbl->setPrimaryKey(array("id"));
+        $ctbl->addForeignKeyConstraint($tbl, array("table_name"), array("name"));
+
+        foreach ($schema->toSql($conn->getDatabasePlatform()) as $sql) {
+            $conn->exec($sql);
+        }
+
         $classes = $em->getMetadataFactory()->getAllMetadata();
         $mapping = array();
         foreach( $classes as $class_name=>$class ){
@@ -204,69 +265,200 @@ class HomeController extends Controller
             $mapping[ $class->table['name'] ] =  $class->rootEntityName; # $class->name  looks the same
         } 
 
-        $schema = new \Doctrine\DBAL\Schema\Schema();
-        $tbl = $schema->createTable("appassionata_admin");
-        $tbl->addColumn("id", "integer", array("unsigned" => true, "autoincrement" => true));
-        $tbl->addColumn("name", "string", array("length" => 32));
-        $tbl->addColumn("class", "string", array("length" => 256, "notnull" => false));
-        $tbl->addColumn("columns", "blob", array('length' => 16777215));
-        $tbl->setPrimaryKey(array("id"));
-
-        foreach ($schema->toSql($conn->getDatabasePlatform()) as $sql) {
-            $conn->exec($sql);
-        }
-
         $tables = $sm->listTables();
-        $stmt = $conn->prepare('INSERT INTO appassionata_admin (id, name, class, columns) VALUES (null, :name, :class, :columns)');
+        $stmt = $conn->prepare('INSERT INTO appassionata_admin_tables (name, class, identifier, prim) VALUES (:name, :class, :identifier, :prim)');
+        $table_ref = array();
         foreach( $tables as $table ){
-            $cols = $table->getColumns();
-            $col_hash = array();
-            foreach( $cols as $col ){
-                $col_hash[ $col->getName() ] = 'on';
-            }
             $table_name = $table->getName();
-            $class = ( isset($mapping[$table_name]) )? $mapping[$table_name] : null;
-            $serialized_hash = serialize($col_hash);
+            $class_name = ( isset($mapping[$table_name]) )? $mapping[$table_name] : '';
+            $class = ($class_name!='')? $em->getClassMetadata( $class_name ) : null;
+            $identifier = ($class)? $class->getIdentifierColumnNames()[0] : '';
+                            #->getSingleIdentifierFieldName();
+            $primary_key_col = ($table->hasPrimaryKey())? $table->getPrimaryKeyColumns()[0] : '';
+
             $stmt->bindParam('name', $table_name);
-            $stmt->bindParam('class', $class);
-            $stmt->bindParam('columns', $serialized_hash);
-
+            $stmt->bindParam('class', $class_name);
+            $stmt->bindParam('identifier', $identifier);
+            $stmt->bindParam('prim', $primary_key_col);
             if( !$stmt->execute() ){ var_dump($stmt->error); }
+
+            $table_ref[$table_name] = array('name'=>$table_name, 'class'=>$class_name, 'identifier'=> $identifier, 'prim'=> $primary_key_col);
         }
-    }
+        unset($mapping);
 
+        $table_cols = array();
+        foreach( $tables as $table ){
+            $t_name = $table->getName();
 
-    function getTableByClass($table_name, $one_table, $request){
-            $em = $this->get('doctrine')->getManager();
-            $meta = $em->getClassMetadata( $one_table->class );
-            $methods = get_class_methods($one_table->class);
-            $cols = array();
-            $fields = $meta->getFieldNames();
-            foreach( $fields as $field ){ 
-                $cols[$field] = $meta->getFieldMapping($field); 
-                $cols[$field]["assoc"] = false;
-                $getter = "get".$this->camelize($field);
-                $cols[$field]["getter"] = in_array($getter, $methods)? $getter : false;
-#var_dump( $cols[$field] );
+            $cols_to_fields = array();
+            foreach( $table->getColumns() as $l ){
+                $l_name = $l->getName();
+                $cols_to_fields[ $l_name ] = $l->toArray();
+                $cols_to_fields[ $l_name ]['is_association'] = 0;
             }
-            $assoc_fields = $meta->getAssociationNames();
-            foreach( $assoc_fields as $field ){ 
-                $cols[$field] = $meta->getAssociationMapping($field); 
-#var_dump( $cols[$field] );
-                $cols[$field]["assoc"] = true;
-                $cols[$field]["type_name"] = array( '', 
-                                                    'ONE_TO_ONE', 'MANY_TO_ONE', 'TO_ONE', 'ONE_TO_MANY', #4
-                                                    '', '', '', 'MANY_TO_MANY', # 8
-                                                    '', '', '', 'TO_MANY')[ $cols[$field]["type"] ];
-                $getter = "get".$this->camelize($field);
-                $cols[$field]["getter"] = in_array($getter, $methods)? $getter : false;
-                $target_meta = $em->getClassMetadata( $cols[$field]['targetEntity'] );
-                $target_methods = get_class_methods( $cols[$field]['targetEntity'] ); 
-                $cols[$field]["table_name"] = $target_meta->table['name'];
-                $cols[$field]["target_id_col"] = $target_meta->getIdentifierColumnNames()[0];
-                $target_getter = "get".$this->camelize( $cols[$field]["target_id_col"] );
-                $cols[$field]["target_id_getter"] = in_array($target_getter, $target_methods)? $target_getter : false;
+
+            $foreignKeys = $sm->listTableForeignKeys( $t_name );
+            foreach ($foreignKeys as $i=>$foreignKey) {
+                $li = $foreignKey->getLocalColumns()[0];
+                $r = $foreignKey->getForeignColumns()[0];
+                if( !isset( $cols_to_fields[ $li ] ) ){
+var_dump( 'no such local column found' );
+                }else{
+                    $tgt_tbl_name = $foreignKey->getForeignTableName();
+                    $cols_to_fields[ $li ]['is_association'] = 1;
+                    $cols_to_fields[ $li ]['imaginary'] = 0;
+                    $cols_to_fields[ $li ]['tgt_table_name'] = $tgt_tbl_name;
+                    $cols_to_fields[ $li ]['tgt_table_prim'] = $table_ref[$tgt_tbl_name]['prim'];
+                    $cols_to_fields[ $li ]['tgt_col_name'] = $r;
+                }
             }
+            foreach(  $cols_to_fields as &$la ){ 
+                $la['type'] = strtolower( $la['type']->__toString() ); 
+                $la['type'] = (!$la['type'])? 'association' : $la['type'];
+            }
+            $table_cols[ $t_name ] = $cols_to_fields; 
+        }
+        foreach($table_cols as $t_name=>$c_to_f){
+            foreach($c_to_f as $c_name=>$data){
+                if($data['is_association']){
+                    $ref_name = "{$data['tgt_col_name']}_{$t_name}_$c_name";
+#var_dump("$t_name $c_name >>>> $ref_name");
+                    $table_cols[$data['tgt_table_name']][$ref_name] = array(
+                        'type'=> 'association',
+                        'is_association'=>1,
+                        'imaginary'=>1,
+                        'tgt_table_name'=>$t_name,
+                        'tgt_table_prim'=>$table_ref[$t_name]['prim'],
+                        'tgt_col_name'=>$c_name,
+                    );
+                }
+            }
+        }
+
+        $classes = $em->getMetadataFactory()->getAllMetadata();
+        foreach( $classes as $i=>$class ){
+            #$class->name, 'rootEntityName' => $class->rootEntityName
+            $t_name = $class->table['name'];
+            $methods = get_class_methods( $class->name ); 
+#var_dump($class->name, $methods);
+            $field_names = $class->getFieldNames();
+            foreach( $field_names as $field_name ){ 
+                $field = $class->getFieldMapping($field_name); 
+                $c_name = $field['columnName'];
+                $f_type = $class->getTypeOfField($field_name);
+
+                $getter = "get".$this->camelize($field_name);
+                $getter = in_array($getter, $methods)? $getter : '';
+                $setter = "set".$this->camelize($field_name);
+                $setter = in_array($setter, $methods)? $setter : '';
+
+                $table_cols[$t_name][$c_name]['getter'] = $getter;
+                $table_cols[$t_name][$c_name]['setter'] = $setter;
+                $table_cols[$t_name][$c_name] = array_merge( $field, $table_cols[$t_name][$c_name] );
+
+if($class->hasAssociation($field_name)){
+#    var_dump( $class->hasAssociation($field_name));
+}
+#var_dump( $table_cols[$t_name][$c_name] );
+
+            }
+            $a_field_names = $class->getAssociationNames();
+            foreach( $a_field_names as $a_field_name ){ 
+                $a_field = $class->getAssociationMapping($a_field_name); 
+                # $a_column =  $class->getColumnName($a_field_name); ### does not respond to mysql column names
+                $tgt_class_name = $a_field['targetEntity'];
+                $target_class = $em->getClassMetadata( $tgt_class_name );
+                $tgt_table = $target_class->table['name'];
+                $tgt_field = $a_field['inversedBy']? $a_field['inversedBy'] : $a_field['mappedBy']; 
+
+                $assoc_name = array( '',
+                                    'ONE_TO_ONE', 'MANY_TO_ONE', 'TO_ONE', 'ONE_TO_MANY', #4
+                                    '', '', '', 'MANY_TO_MANY', # 8
+                                    '', '', '', 'TO_MANY')[ $a_field["type"] ];
+                $getter = "get".$this->camelize($a_field_name);
+                $getter = in_array($getter, $methods)? $getter : '';
+                $setter = "set".$this->camelize($a_field_name);
+                $setter = in_array($setter, $methods)? $setter : '';
+
+#var_dump( "self: $t_name > $a_field_name", "Target: $tgt_table > $tgt_field", $a_field );
+                if( isset($a_field['joinColumns']) ){
+                    if( count($a_field['joinColumns']) == 1 ){
+                        $join_col = $a_field['joinColumns'][0];
+                        $a_col = $join_col['name'];
+                        $tgt_col = $join_col['referencedColumnName'];
+                        $ref = "{$a_col}_{$tgt_table}_{$tgt_col}";
+                        $back_ref = "{$tgt_col}_{$t_name}_{$a_col}";
+                        if( !isset($table_cols[$t_name][$a_col])){
+                            $table_cols[$t_name][$a_col]=array();
+                        }
+
+                        $table_cols[$t_name][$a_col]['fieldName'] = $a_field_name;
+                        $table_cols[$t_name][$a_col]['assocName'] = $assoc_name;
+                        $table_cols[$t_name][$a_col]['getter'] = $getter;
+                        $table_cols[$t_name][$a_col]['setter'] = $setter;
+                        $table_cols[$t_name][$a_col]['columnName'] = $a_col;
+                        $table_cols[$t_name][$a_col]['tgt_table_name'] = $tgt_table;
+                        $table_cols[$t_name][$a_col]['tgt_class_name'] = $tgt_class_name;
+                        $table_cols[$t_name][$a_col]['tgt_table_prim'] =       $table_ref[$tgt_table]['prim'];
+                        $table_cols[$t_name][$a_col]['tgt_table_identifier'] = $table_ref[$tgt_table]['identifier'];
+                        $table_cols[$t_name][$a_col]['tgt_field_name'] = $tgt_field;
+                        $table_cols[$t_name][$a_col]['tgt_col_name'] = $tgt_col;
+                        $table_cols[$t_name][$a_col]['is_association'] = 1;
+                        $table_cols[$t_name][$a_col]['single'] =       (int)$class->isSingleValuedAssociation($a_field_name);
+                        $table_cols[$t_name][$a_col]['collection'] =   (int)$class->isCollectionValuedAssociation($a_field_name);
+                        $table_cols[$t_name][$a_col]['inverse_side'] = (int)$class->isAssociationInverseSide($a_field_name);
+                        $table_cols[$t_name][$a_col] = array_merge( $a_field, $table_cols[$t_name][$a_col] );
+
+                        if( isset($table_cols[$t_name][$ref])){
+var_dump( "Key Ref Column exists", $table_cols[$t_name][$ref]);
+                        }
+
+                        if( isset( $table_cols[$tgt_table][$back_ref])){
+                            $table_cols[$tgt_table][$back_ref]['fieldName'] = $tgt_field;
+                            $table_cols[$tgt_table][$back_ref]['assocName'] = $assoc_name;
+                            $table_cols[$tgt_table][$back_ref]['getter'] = $getter;
+                            $table_cols[$tgt_table][$back_ref]['setter'] = $setter;
+                            $table_cols[$tgt_table][$back_ref]['tgt_table_name'] = $t_name;
+                            $table_cols[$tgt_table][$back_ref]['tgt_class_name'] = $class->name;
+                            $table_cols[$tgt_table][$back_ref]['tgt_table_prim'] =       $table_ref[$t_name]['prim'];
+                            $table_cols[$tgt_table][$back_ref]['tgt_table_identifier'] = $table_ref[$t_name]['identifier'];
+                            $table_cols[$tgt_table][$back_ref]['tgt_field_name'] = $a_field_name;
+                            $table_cols[$tgt_table][$back_ref]['tgt_col_name'] =   $a_col;
+                            if(isset( $table_cols[$tgt_table][$tgt_field."_col"] )){
+#var_dump( $tgt_field."_col", $back_ref, $table_cols[$tgt_table][$back_ref]['imaginary'] );
+                                $table_cols[$tgt_table][$tgt_field."_col"] =  array_merge( $table_cols[$tgt_table][$back_ref], $table_cols[$tgt_table][$tgt_field."_col"] );
+#var_dump( $table_cols[$tgt_table][$tgt_field."_col"]['imaginary'] );
+                                unset($table_cols[$tgt_table][$back_ref]);
+                            }
+                        }else{
+#var_dump("No foreign keys back ref> $back_ref");
+                        }
+                    }else{
+var_dump( 'Count of joinColumns = '.count($a_field['joinColumns']) );
+                    }
+                }else{
+                    $guessed_col = $a_field_name."_col"; # since I don't know col name or foreign key col at this point
+#var_dump("guessed> $a_field_name"."_col");
+                    if( !isset($table_cols[$t_name][$guessed_col]) ){
+                        $table_cols[$t_name][$guessed_col] = $a_field;
+                    }else{
+                        //?
+                    }
+                    $table_cols[$t_name][$guessed_col]['getter'] = $getter;
+                    $table_cols[$t_name][$guessed_col]['setter'] = $setter;
+                    $table_cols[$t_name][$guessed_col]['is_association'] = 1;
+                    $table_cols[$t_name][$guessed_col]['assocName'] = $assoc_name;
+                    $table_cols[$t_name][$guessed_col]['tgt_table_name'] = $tgt_table;
+                    $table_cols[$t_name][$guessed_col]['tgt_class_name'] = $tgt_class_name;
+                    $table_cols[$t_name][$guessed_col]['tgt_table_prim'] =       $table_ref[$tgt_table]['prim'];
+                    $table_cols[$t_name][$guessed_col]['tgt_table_identifier'] = $table_ref[$tgt_table]['identifier'];
+                    $table_cols[$t_name][$guessed_col]['tgt_field_name'] = $tgt_field;
+                    $table_cols[$t_name][$guessed_col]['single'] =       (int)$class->isSingleValuedAssociation($a_field_name);
+                    $table_cols[$t_name][$guessed_col]['collection'] =   (int)$class->isCollectionValuedAssociation($a_field_name);
+                    $table_cols[$t_name][$guessed_col]['inverse_side'] = (int)$class->isAssociationInverseSide($a_field_name);
+                }
+            }
+        }
 #$meta->getIdentifierColumnNames(); #all?
 #var_dump($meta->getFieldNames(););     #usual
 #var_dump($cols); #from other tables
@@ -274,9 +466,91 @@ class HomeController extends Controller
 #var_dump($one_table->getColumns()); # with properties
 #$isRequired = !$metadata->isNullable("myField");
 
+
+#var_dump($table_cols);
+        $table_fields = array();
+        foreach($table_cols as $t_name=>$table_c){
+#var_dump('################ '.$t_name, array_keys($table_c));
+            foreach($table_c as $col_name=>$col){
+                $fieldName = isset($col['fieldName'])? $col['fieldName'] : $col_name."_field";
+                $fieldName = ($fieldName == "name_appassionata_admin_fields_table_name_field")? "fields" : $fieldName;
+                $col_name = ($col_name == "name_appassionata_admin_fields_table_name")? "fields_col": $col_name;
+
+                $table_fields[$t_name][ $fieldName ] = $col;
+                $table_fields[$t_name][ $fieldName ]['getter'] = isset($col['getter'])? $col['getter'] : '';
+                $table_fields[$t_name][ $fieldName ]['setter'] = isset($col['setter'])? $col['setter'] : '';
+                $table_fields[$t_name][ $fieldName ]['columnName'] = $col_name;
+                $table_fields[$t_name][ $fieldName ]['is_on'] = 1;
+                $table_fields[$t_name][ $fieldName ]['nullable'] = isset($col['nullable'])? (int)$col['nullable'] : 0;
+                $table_fields[$t_name][ $fieldName ]['unique'] = isset($col['unique'])? (int)$col['unique'] : 0;
+                $table_fields[$t_name][ $fieldName ]['is_owner'] = isset($col['inverse_side'])? (int)!$col['inverse_side'] : 0;
+                $table_fields[$t_name][ $fieldName ]['imaginary'] = isset($col['imaginary'])? (int)$col['imaginary'] : 0;
+                $table_fields[$t_name][ $fieldName ]['assocName'] = isset($col['assocName'])? $col['assocName'] : '';
+                $table_fields[$t_name][ $fieldName ]['single'] = isset($col['single'])? $col['single'] : 0;
+                $table_fields[$t_name][ $fieldName ]['collection'] = isset($col['collection'])? $col['collection'] : 0;
+                $table_fields[$t_name][ $fieldName ]['tgt_class_name'] = isset($col["tgt_class_name"])? $col["tgt_class_name"] : '';
+                $table_fields[$t_name][ $fieldName ]['tgt_table_name'] = isset($col["tgt_table_name"])? $col["tgt_table_name"] : '';
+                $table_fields[$t_name][ $fieldName ]['tgt_field_name'] = isset($col["tgt_field_name"])? $col["tgt_field_name"] : '';
+                $table_fields[$t_name][ $fieldName ]['tgt_col_name'] = isset($col["tgt_col_name"])? $col["tgt_col_name"] : '';
+            }
+        }
+#var_dump($table_fields);
+
+        $stmt = $conn->prepare('INSERT INTO appassionata_admin_fields '
+            . '(table_name, field, col, type, getter, setter, is_nullable, is_unique, is_on, '
+                . 'imaginary, is_association, association_name, is_owner, is_single, is_collection, '
+                . 'tgt_class_name, tgt_table_name, tgt_table_prim, tgt_table_identifier, tgt_table_id_getter, tgt_field_name, tgt_field_getter, tgt_col_name) ' 
+            . 'VALUES (:table_name, :field, :col, :type, :getter, :setter, :is_nullable, :is_unique, :is_on, '
+                . ':imaginary, :is_association, :association_name, :is_owner, :is_single, :is_collection, '
+                . ':tgt_class_name, :tgt_table_name, :tgt_table_prim, :tgt_table_identifier, :tgt_table_id_getter, :tgt_field_name, :tgt_field_getter, :tgt_col_name)');
+
+
+        foreach( $table_fields as $table_name=>$table_fs ){
+            foreach( $table_fs as $field_name=>$field ){
+
+                $tgt_table_id_getter = ( isset($field['tgt_table_identifier']) and $field['tgt_table_identifier'] != '' )? 
+                    $table_fields[ $field["tgt_table_name"] ][ $field['tgt_table_identifier'] ]['getter'] : ''; 
+                $tgt_field_getter = ( isset($field['tgt_field_name']) and $field['tgt_field_name'] != '' )?
+                    $table_fields[ $field["tgt_table_name"] ][ $field['tgt_field_name'] ]['getter'] : ''; 
+
+                $stmt->bindParam("table_name", $table_name);
+                $stmt->bindParam("field",      $field_name);
+                $stmt->bindParam("col",        $field['columnName']);
+                $stmt->bindParam("type",       $field['type']);
+                $stmt->bindParam("getter",     $field['getter']);
+                $stmt->bindParam("setter",     $field['setter']);
+                $stmt->bindParam("is_nullable",   $field['nullable']);
+                $stmt->bindParam("is_unique",     $field['unique']);
+                $stmt->bindParam("is_on",      $field['is_on']);
+                $stmt->bindParam("imaginary",       $field["imaginary"]);
+                $stmt->bindParam("is_association",  $field["is_association"]);
+                $stmt->bindParam("association_name",$field['assocName']);
+                $stmt->bindParam("is_owner",        $field['is_owner']);
+                $stmt->bindParam("is_single",       $field['single']);
+                $stmt->bindParam("is_collection",   $field['collection']);
+                $stmt->bindParam("tgt_table_name",  $field["tgt_table_name"]);
+                $stmt->bindParam("tgt_class_name",  $field["tgt_class_name"]);
+                $stmt->bindParam("tgt_table_prim",  $field["tgt_table_prim"]);
+                $stmt->bindParam("tgt_table_identifier",  $field["tgt_table_identifier"]);
+                $stmt->bindParam("tgt_table_id_getter", $tgt_table_id_getter );
+                $stmt->bindParam("tgt_field_name",  $field["tgt_field_name"]);
+                $stmt->bindParam("tgt_field_getter", $tgt_field_getter );
+                $stmt->bindParam("tgt_col_name",    $field["tgt_col_name"]);
+                if( !$stmt->execute() ){ var_dump($stmt->error); }
+            }
+        }
+
+    }
+
+
+    function getTableByClass($table_name, $info, $conn, $request){
+            $em = $this->get('doctrine')->getManager();
+            $sm = $conn->getSchemaManager();
+
+
             $qb = $em->createQueryBuilder();
             $qb->select('i')
-               ->from($one_table->class, 'i');
+               ->from($info['class'], 'i');
 
             $where_bool = false;
             $get_query = array();
@@ -289,9 +563,11 @@ class HomeController extends Controller
                     $pairs = array();
                     foreach( $args['equal'] as $col_name=>$val ){
                         if( $where_bool ){
-                            $qb->andWhere("i.$col_name = $val");
+                            $qb->andWhere($qb->expr()->eq("i.$col_name", 
+                                $qb->expr()->literal($val)));
                         }else{
-                            $qb->where("i.$col_name = $val");
+                            $qb->where($qb->expr()->eq("i.$col_name",
+                                $qb->expr()->literal($val)));
                             $where_bool = true;
                         }
                     }
@@ -348,92 +624,103 @@ class HomeController extends Controller
             $rows = array();
             foreach( $pagination as $p_row ){
                 $row = array();
-                foreach( $cols as $name=>$col ){
-                    $getter = $col['getter'];
+                foreach( $info['fields'] as $name=>$field ){
+                    $getter = $field['getter'];
+#var_dump("$name $getter");
                     $val = $p_row->$getter();
-                    if( $col['assoc'] ){
+                    $col_class = str_replace(' ','_',$field['col']);
+                    //if( 'array' == $field['type'] ){
 
-                        $target_getter = $col["target_id_getter"];
-                        $arr = array('id_name'=>$col["target_id_col"], 'values'=> array());
-                        if( get_class($val) == 'Doctrine\ORM\PersistentCollection' ){
+                    if($field['is_association']){
+
+                        $target_getter = $field["tgt_table_id_getter"];
+                        $col_class .= ($field['imaginary'])? ' imaginary' : ' fkey';
+                        $arr = array('col_class'=>$col_class, 'value'=>'', 'values'=> array());
+
+                        if( $field['is_collection'] and get_class($val) == 'Doctrine\ORM\PersistentCollection' ){
                             $i = 0;
                             $arr['count'] = count($val);
                             foreach( $val as $v ){
                                 $arr['values'][] = $v->$target_getter();
                                 if( $i++ > 10){ break; }
                             }
-                        }elseif( get_class($val) == $col['targetEntity'] ){
-                            $arr['count'] = 1;
-                            $arr['values'][] = $val->$target_getter();
-                        }elseif( $val ){ ## should be Proxy
+                        }elseif( get_class($val) == $field['tgt_class_name'] or $val){ #match or Proxy
                             $arr['count'] = 1;
                             $arr['values'][] = $val->$target_getter();
                         }
-                        $row[$name] = $arr;
+                        if( 1 == $arr['count'] ){
+                            $arr['value'] = $arr['values'][0];
+                        }
+                        $row[$field['col']] = $arr;
 
                     }else{
-                        $row[$name] = $p_row->$getter();
+                        $val_str = ('datetime' == $field['type'] and $val)? $val->format('Y-m-d H:i:s') : $val; 
+                        $val_str = is_array($val_str)? implode(', ', $val_str) : $val_str;
+                        $row[$field['col']] = array('col_class'=>$col_class, 'value'=>$val_str);
                     }
                 }
                 $rows[] = $row;
             }
 #var_dump($rows);
 
-            $myTable = array( 
-                         #'table' => $sm->listTableDetails( $_GET['table'] ),
+            $myTable = array(
+                         'table' => $info,
                          'query' =>  $get_query,
-                         'name' =>   $table_name,
-                         'columns' =>$cols,
-                         'fkeys' =>  $one_table->fkeys,
-                         'class' =>  $one_table->class,
                          'rows' =>   $rows,
+                         'pagination' => $pagination,
                          'show_pagination_bool' => count( $collection ) > $perPage,
                         );
+
     return $myTable;
     }
 
 
-    function getTableByMySQL($table_name, $one_table, $conn, $request){
+    function getTableByMySQL($table_name, $info, $conn, $request){
             $query = "SELECT * FROM $table_name";
             $where_bool = false;
             $get_query = array();
 
-            if( isset($_GET['eq']) ){
-                $get_query['eq'] = $_GET['eq'];
-                $pairs = array();
-                foreach( $_GET['eq'] as $col_name=>$val ){
-                    $pairs[] = "$col_name=$val";
-                }
-                if( count($pairs)>0){
-                    $pairs_str = implode(' AND ', $pairs);
-                    $query .= " WHERE ( $pairs_str ) ";
-                    $where_bool = true;
-                }
-            }
+            if(isset($_GET['query'])){
+                $args = $_GET['query']; 
 
-            if( isset($_GET['range']) ){
-                $get_query['range'] = $_GET['range'];
-                $pairs = array();
-                foreach( $_GET['range'] as $col_name=>$range ){
-                    $pairs[] = "$col_name BETWEEN '{$range['start']}' AND '{$range['end']}'";
-                }
-                if( count($pairs)>0 ){
-                    $pairs_str = implode(' AND ', $pairs);
-                    if( $where_bool ){
-                        $query .= " AND ( $pairs_str ) ";
-                    }else{
+                if( isset($args['equal']) ){
+                    $get_query['equal'] = $args['equal'];
+                    $pairs = array();
+                    foreach( $args['equal'] as $col_name=>$val ){
+                        $pairs[] = (is_numeric($val))? "$col_name=$val" : "$col_name='$val'";
+                    }
+                    if( count($pairs)>0){
+                        $pairs_str = implode(' AND ', $pairs);
                         $query .= " WHERE ( $pairs_str ) ";
+                        $where_bool = true;
+                    }
+                }
+
+                if( isset($args['range']) ){
+                    $get_query['range'] = $args['range'];
+                    $pairs = array();
+                    foreach( $args['range'] as $col_name=>$range ){
+                        $pairs[] = "$col_name BETWEEN '{$range['start']}' AND '{$range['end']}'";
+                    }
+                    if( count($pairs)>0 ){
+                        $pairs_str = implode(' AND ', $pairs);
+                        if( $where_bool ){
+                            $query .= " AND ( $pairs_str ) ";
+                        }else{
+                            $query .= " WHERE ( $pairs_str ) ";
+                        }
+                    }
+                }
+
+                if( isset($args['order']) ){
+                    $get_query['order'] = $args['order'];
+                    if( count($args['order'])>0 ){
+                        $pairs_str = implode(', ', $args['order']);
+                        $query .= " ORDER BY  $pairs_str ";
                     }
                 }
             }
 
-            if( isset($_GET['order']) ){
-                $get_query['order'] = $_GET['order'];
-                if( count($_GET['order'])>0 ){
-                    $pairs_str = implode(', ', $_GET['order']);
-                    $query .= " ORDER BY  $pairs_str ";
-                }
-            }
             $statement = $conn->prepare($query);
             //foreach( $params as $key=>$val){ $statement->bindValue( $key, $val ); }
             $statement->execute();
@@ -446,36 +733,58 @@ class HomeController extends Controller
                 $request->query->getInt('page', 1),   /*page number*/
                 $perPage
             );
-
-            $cols = array();
-            foreach( $one_table->getColumns() as $col_name => $col ){
-                $cols[$col_name] = array(
-                    'fieldName'=>$col_name,
-                    'columnName'=>$col->getName(),
-                    'type' => $col->getType(),
-                    'nullable' => !$col->getNotnull(),
-                    'unique' => '',
-                    'assoc'=>false,
-                );
-            }
-
             $rows = array();
             foreach( $pagination as $p_row ){
                 $row = array();
-                foreach( $cols as $name=>$col ){
-                    $row[$name] = $p_row[$name];
+                foreach( $info['fields'] as $field_name=>$field ){
+#var_dump("$field_name {$field['col']}");
+                    $col_class = str_replace(' ','_',$field['col']);
+                    if($field['is_association']){
+                        $col_class .= ($field['imaginary'])? ' imaginary' : ' fkey';
+                        $arr = array('col_class'=>$col_class, 'value'=>'', 'values'=> array());
+
+                        $my_prim_val = $p_row[$info['prim']];
+                        $tgt_prim_name = $field['tgt_table_prim'];
+                        if( !$field['imaginary'] ){
+                            $statement = $conn->prepare("SELECT f.$tgt_prim_name "
+                                ." FROM $table_name as t inner join {$field['tgt_table_name']} as f on f.{$field['tgt_col_name']} = t.{$field['col']} "
+                                ." WHERE t.{$field['col']}='{$p_row[$field['col']]}'"
+                                ." group by t.{$field['col']}"
+                                );
+                        }else{ # guessing that tgt_col is not imaginary
+                            $statement = $conn->prepare("SELECT f.$tgt_prim_name "
+                                ." FROM {$field['tgt_table_name']} as f where f.{$field['tgt_col_name']} = '$my_prim_val' "
+                                );
+                        }
+                        $statement->execute();
+                        $res = $statement->fetchAll();
+                        $i = 0;
+                        $arr['count'] = count($res);
+                        foreach( $res as $v ){
+                            $arr['values'][] = $v[$tgt_prim_name];
+                            if( $i++ > 10){ break; }
+                        }
+
+                        if( 1 == $arr['count'] ){
+                            $arr['value'] = $arr['values'][0];
+                        }
+                        $row[$field['col']] = $arr;
+
+                    }else{
+                        $val = $p_row[$field['col']];
+                        $val_str = ('datetime' == $field['type'] and $val)? $val->format('Y-m-d H:i:s') : $val; 
+                        $val_str = is_array($val_str)? implode(', ', $val_str) : $val_str;
+                        $row[$field['col']] = array('col_class'=>$col_class, 'value'=>$val_str);
+                    }
                 }
                 $rows[] = $row;
             }
 
             $myTable = array( 
-                         #'table' => $sm->listTableDetails( $_GET['table'] ),
+                         'table' => $info,
                          'query' =>  $get_query,
-                         'name' =>   $one_table->getName(),
-                         'columns' =>$cols,
-                         'fkeys' =>  $one_table->fkeys,
-                         'class' =>  isset($one_table->class)? $one_table->class : null,
                          'rows' =>   $rows,
+                         'pagination' => $pagination,
                          'show_pagination_bool' => count( $collection ) > $perPage,
                         );
     return $myTable;

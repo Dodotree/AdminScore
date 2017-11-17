@@ -135,7 +135,8 @@
     }
     .main{
         position: relative;
-        float:right;
+        display: inline-block;
+        float: left;
         width: 80rem;
     }
     .side-body{
@@ -144,6 +145,11 @@
     }
     .main-body{
         padding: 1rem;
+    }
+    .main-body, 
+    .main-body form{
+        display: inline-block;
+        vertical-align: top;
     }
     ul{
       margin: 0;
@@ -252,8 +258,8 @@
     td.fkey{
         background-color: rgba(108,181,217,0.22);
     }
-    th.associated,
-    td.associated{
+    th.imaginary,
+    td.imaginary{
         background-color: rgba(181,217, 108,0.22);
     }
 
@@ -623,4 +629,12 @@ th .ddn{
     margin-top: 1rem;
     border-color: #3E9AC8;
     color: #3E9AC8;
+}
+
+.column-th-names{
+    display: inline-block;
+    vertical-align: middle;
+}
+.column-th-names .column-name{
+    font-size: 0.9rem;
 }

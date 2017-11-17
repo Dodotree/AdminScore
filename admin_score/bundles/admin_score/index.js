@@ -184,7 +184,7 @@ var SearchQuery = {
     addOrderNode: function(col_name, direction){
         var holder = $(".query-order-holder");
         if( holder.length < 1 ){
-            holder = $('<div class="query-param  query-order-holder"> Order by:</div>')
+            holder = $('<div class="query-param  query-order-holder"><b>Order by:</b></div>')
                 .appendTo($(".table-queries-list"));
         }
 
@@ -236,10 +236,12 @@ var flashCard = {
 };
 
 function toggleColumn(){
+console.log(this);
     var li = $(this).closest('li.db_table');
     var table_name = li.children('a').text().trim();
-    var col_name = $(this).next().find('.col_name').text().trim().replace(' ','_');
+    var col_name = $(this).data('col');
     var col_class = '.' + table_name + ' .' + col_name;
+console.log(col_class, $(this).is(':checked'));
     $( col_class ).toggle( $(this).is(':checked') );
 }
 
