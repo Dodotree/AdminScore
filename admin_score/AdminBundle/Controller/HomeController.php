@@ -1,6 +1,6 @@
 <?php
 
-namespace SportsRush\AdminBundle\Controller;
+namespace Museum\AdminBundle\Controller;
 
 use Symfony\Bundle\FrameworkBundle\Controller\Controller;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
@@ -37,7 +37,7 @@ class HomeController extends Controller
             return $this->json( array('errors'=>'List of rows is empty') );
         }
 
-        if( !$sm->tablesExist(array('appassionata_admin_tabl')) ){
+        if( !$sm->tablesExist(array('appassionata_admin_tables')) ){
             self::refreshAdminTable($conn, $sm);
         }
 
@@ -65,7 +65,7 @@ class HomeController extends Controller
             }
         }
 #var_dump($myTable['rows']);
-        return $this->render('SportsRushAdminBundle:Home:tables_tab.html.twig', array(
+        return $this->render('MuseumAdminBundle:Home:tables_tab.html.twig', array(
             'tables' => $tables,
             'myTableName' => $table_name,
             'myTable'=> $myTable, 
@@ -118,35 +118,35 @@ class HomeController extends Controller
 
         foreach( $table_names as $name ){ if( !isset( $mapping[$name] ) ){  $mapping[$name] = array( 'name'=>'none', 'rootEntityName' => 'none' ); }}
 
-        return $this->render('SportsRushAdminBundle:Home:classes_tab.html.twig', array(
+        return $this->render('MuseumAdminBundle:Home:classes_tab.html.twig', array(
             'mapping' => $mapping,
         ));
     }
 
     public function imagesTabAction(Request $request)
     {
-        return $this->render('SportsRushAdminBundle:Home:images_tab.html.twig', array(
+        return $this->render('MuseumAdminBundle:Home:images_tab.html.twig', array(
             'images' => glob('uploads/thumbs/*'),
         ));
     }
 
     public function videoTabAction(Request $request)
     {
-        return $this->render('SportsRushAdminBundle:Home:video_tab.html.twig', array(
+        return $this->render('MuseumAdminBundle:Home:video_tab.html.twig', array(
         //    'tables' => $tables,
         ));
     }
 
     public function mailTabAction(Request $request)
     {
-        return $this->render('SportsRushAdminBundle:Home:mail_tab.html.twig', array(
+        return $this->render('MuseumAdminBundle:Home:mail_tab.html.twig', array(
         //    'tables' => $tables,
         ));
     }
 
     public function claimsTabAction(Request $request)
     {
-        return $this->render('SportsRushAdminBundle:Home:claims_tab.html.twig', array(
+        return $this->render('MuseumAdminBundle:Home:claims_tab.html.twig', array(
         ));
     }
 
@@ -166,11 +166,7 @@ class HomeController extends Controller
                 if( !$stmt->execute() ){ $errs[] = $stmt->error; }
             }
         }
-        
-        # $stmt = $conn->prepare("select is_on from appassionata_admin_fields where table_name='video_users'");
-        # $stmt->execute();
-        # $res= $stmt->fetchAll();
-    return ( count($errs)>0 )? array('errors'=>'done') : array('successes'=>$res);
+    return ( count($errs)>0 )? array('errors'=>$errs) : array('successes'=>'done');
     }
 
 
@@ -391,6 +387,7 @@ var_dump( 'no such local column found' );
             $t_name = $class->table['name'];
             $methods = get_class_methods( $class->name ); 
 #var_dump($class->name, $methods);
+
             $field_names = $class->getFieldNames();
             foreach( $field_names as $field_name ){ 
                 $field = $class->getFieldMapping($field_name); 
@@ -405,17 +402,11 @@ var_dump( 'no such local column found' );
                 $table_cols[$t_name][$c_name]['getter'] = $getter;
                 $table_cols[$t_name][$c_name]['setter'] = $setter;
                 $table_cols[$t_name][$c_name] = array_merge( $field, $table_cols[$t_name][$c_name] );
-
-#if($class->hasAssociation($field_name)){
-#    var_dump( $class->hasAssociation($field_name));
-#}
-#var_dump( $table_cols[$t_name][$c_name] );
-
             }
+
             $a_field_names = $class->getAssociationNames();
             foreach( $a_field_names as $a_field_name ){ 
                 $a_field = $class->getAssociationMapping($a_field_name); 
-                # $a_column =  $class->getColumnName($a_field_name); ### does not respond to mysql column names
                 $tgt_class_name = $a_field['targetEntity'];
                 $target_class = $em->getClassMetadata( $tgt_class_name );
                 $tgt_table = $target_class->table['name'];
@@ -430,142 +421,143 @@ var_dump( 'no such local column found' );
                 $setter = "set".$this->camelize($a_field_name);
                 $setter = in_array($setter, $methods)? $setter : '';
 
+                $a_field['fieldName'] = $a_field_name;
+                $a_field['getter'] = $getter;
+                $a_field['setter'] = $setter;
                 $a_field['is_association'] = 1;
                 $a_field['assocName'] = $assoc_name;
                 $a_field['tgt_class_name'] = $tgt_class_name;
                 $a_field['tgt_table_name'] = $tgt_table;
                 $a_field['tgt_table_prim'] =       $table_ref[$tgt_table]['prim'];
                 $a_field['tgt_table_identifier'] = $table_ref[$tgt_table]['identifier'];
+                $a_field['tgt_field_name'] = $tgt_field;
+                $a_field['single'] =       (int)$class->isSingleValuedAssociation($a_field_name);
+                $a_field['collection'] =   (int)$class->isCollectionValuedAssociation($a_field_name);
+                $a_field['inverse_side'] = (int)$class->isAssociationInverseSide($a_field_name);
+
+
+#$a_column =  $class->getColumnName($a_field_name); ### does not respond to mysql column names
+#var_dump( ":::::::::: > $t_name $a_column " . (int)isset($table_cols[$t_name][$a_column]) );
+#var_dump( "$assoc_name > Self: $t_name field> $a_field_name", "Target table: $tgt_table field> $tgt_field"); 
+#if('ONE_TO_ONE' == $assoc_name){
+
+//sourceToTargetKeyColumn //usually identifier of target table
+//targetToSourceKeyColumns
+
+#var_dump( "Self: $t_name field> $a_field_name Target table: $tgt_table field> $tgt_field", $a_field);
+#}
+
 
                 if( 'MANY_TO_MANY' == $assoc_name ){
 
-#var_dump( "self table: $t_name field> $a_field_name", "Target table: $tgt_table field> $tgt_field"); 
+                    $a_field['columnName'] = $a_field_name."_col"; #imaginary col
 
                     if(isset($a_field['joinTable']) and count($a_field['joinTable']) > 0){
-                        $join_table_name = $a_field['joinTable']['name'];
 
-#var_dump("####################################### record for JOIN $join_table_name");
-#var_dump($a_field['joinTable']);
+                        $join_table_name = $a_field['joinTable']['name'];
 
                         if( isset($a_field['joinTable']['joinColumns']) ){
                             $jo = $a_field['joinTable']['joinColumns'][0];
                             $ref = "{$jo['referencedColumnName']}__{$join_table_name}__{$jo['name']}";
+#var_dump( "$assoc_name > Self: $t_name field> $a_field_name", "Target table: $tgt_table field> $tgt_field | col >", $ref, $jo); 
                             if( isset($table_cols[$t_name][$ref]) ){
-                                $a_field['single'] =       (int)$class->isSingleValuedAssociation($a_field_name);
-                                $a_field['collection'] =   (int)$class->isCollectionValuedAssociation($a_field_name);
-                                $a_field['columnName'] = $a_field_name."_col";
                                 $a_field['is_inverse'] = false;
                                 $a_field['jo_col'] = $jo;
-                                $a_field['getter'] = $getter;
-                                $a_field['setter'] = $setter;
-                                $table_cols[$t_name][$a_field_name."_col"] = array_merge( $a_field, $table_cols[$t_name][$ref] );
+                                $table_cols[$t_name][$a_field_name."_col"] = array_merge( $table_cols[$t_name][$ref], $a_field );
                                 unset($table_cols[$t_name][$ref]);
                             }else{
-                                # probably some declaration errors
+var_dump( "probably some declaration errors $assoc_name > Self: $t_name field> $a_field_name", "Target table: $tgt_table field> $tgt_field"); 
                             }
                         }
+
                         if( isset($a_field['joinTable']['inverseJoinColumns']) ){
                             $jo = $a_field['joinTable']['inverseJoinColumns'][0];
                             $ref = "{$jo['referencedColumnName']}__{$join_table_name}__{$jo['name']}";
+#var_dump( "$assoc_name > Self: $t_name field> $a_field_name", "Target table: $tgt_table field> $tgt_field | inv col >", $ref, $jo); 
+                            
+                            if( !isset($table_cols[$tgt_table][$tgt_field."_col"]) ){
+                                $table_cols[$tgt_table][$tgt_field."_col"] = array();
+                            }
+                            $table_cols[$tgt_table][$tgt_field."_col"]['is_inverse'] = true;
+                            $table_cols[$tgt_table][$tgt_field."_col"]['jo_col'] = $jo;
+                            $table_cols[$tgt_table][$tgt_field."_col"]['fieldName'] = $tgt_field;
+
                             if( isset($table_cols[$tgt_table][$ref]) ){
-                                $a_field['columnName'] = $tgt_field."_col";
-                                $a_field['single'] =       (int)$class->isSingleValuedAssociation($a_field_name);
-                                $a_field['collection'] =   (int)$class->isCollectionValuedAssociation($a_field_name);
-                                $a_field['is_inverse'] = true;
-                                $a_field['jo_col'] = $jo;
-                                $table_cols[$tgt_table][$tgt_field."_col"] = array_merge( $a_field, $table_cols[$tgt_table][$ref] );
+                                $table_cols[$tgt_table][$tgt_field."_col"] = array_merge( $table_cols[$tgt_table][$ref], $table_cols[$tgt_table][$tgt_field."_col"] );
                                 unset($table_cols[$tgt_table][$ref]);
                             }else{
-                                # probably some declaration errors
+var_dump( "probably some declaration errors $assoc_name > Self: $t_name field> $a_field_name", "Target table: $tgt_table field> $tgt_field"); 
                             }
                         }
                     }else{
-                        #create $field_col, should be reversed by search in 'joinCols' above ($tgt_field_col)
-                        $a_field['columnName'] = $a_field_name."_col";
-                        $a_field['single'] =       (int)$class->isSingleValuedAssociation($a_field_name);
-                        $a_field['collection'] =   (int)$class->isCollectionValuedAssociation($a_field_name);
-                        $a_field['getter'] = $getter;
-                        $a_field['setter'] = $setter;
-                        $table_cols[$t_name][$guessed_col]['inverse_side'] = (int)$class->isAssociationInverseSide($a_field_name);
+                        #create $field_col, should be merged with mysql table info above
                         if( isset($table_cols[$t_name][$a_field_name."_col"]) ){
                             $table_cols[$t_name][$a_field_name."_col"] = array_merge( $a_field, $table_cols[$t_name][$a_field_name."_col"] );
                         }else{
                             $table_cols[$t_name][$a_field_name."_col"] = $a_field;
                         }
                     }
-                }
 
-                if( isset($a_field['joinColumns']) ){
+                }elseif( isset($a_field['joinColumns']) ){
+
                     if( count($a_field['joinColumns']) == 1 ){
                         $join_col = $a_field['joinColumns'][0];
-                        $a_col = $join_col['name'];
+                        $a_col =   $join_col['name'];
                         $tgt_col = $join_col['referencedColumnName'];
                         $ref = "{$a_col}__{$tgt_table}__{$tgt_col}";
                         $back_ref = "{$tgt_col}__{$t_name}__{$a_col}";
-                        if( !isset($table_cols[$t_name][$a_col])){
-                            $table_cols[$t_name][$a_col]=array();
-                        }
-
-                        $table_cols[$t_name][$a_col]['fieldName'] = $a_field_name;
-                        $table_cols[$t_name][$a_col]['assocName'] = $assoc_name;
-                        $table_cols[$t_name][$a_col]['getter'] = $getter;
-                        $table_cols[$t_name][$a_col]['setter'] = $setter;
-                        $table_cols[$t_name][$a_col]['columnName'] = $a_col;
-                        $table_cols[$t_name][$a_col]['tgt_table_name'] = $tgt_table;
-                        $table_cols[$t_name][$a_col]['tgt_class_name'] = $tgt_class_name;
-                        $table_cols[$t_name][$a_col]['tgt_table_prim'] =       $table_ref[$tgt_table]['prim'];
-                        $table_cols[$t_name][$a_col]['tgt_table_identifier'] = $table_ref[$tgt_table]['identifier'];
-                        $table_cols[$t_name][$a_col]['tgt_field_name'] = $tgt_field;
-                        $table_cols[$t_name][$a_col]['tgt_col_name'] = $tgt_col;
-                        $table_cols[$t_name][$a_col]['is_association'] = 1;
-                        $table_cols[$t_name][$a_col]['single'] =       (int)$class->isSingleValuedAssociation($a_field_name);
-                        $table_cols[$t_name][$a_col]['collection'] =   (int)$class->isCollectionValuedAssociation($a_field_name);
-                        $table_cols[$t_name][$a_col]['inverse_side'] = (int)$class->isAssociationInverseSide($a_field_name);
-                        $table_cols[$t_name][$a_col] = array_merge( $a_field, $table_cols[$t_name][$a_col] );
 
                         if( isset($table_cols[$t_name][$ref])){
 var_dump( "Key Ref Column exists", $table_cols[$t_name][$ref]);
                         }
+                        if( !isset($table_cols[$t_name][$a_col])){
+                            $table_cols[$t_name][$a_col]=array();
+                        }
+
+                        $a_field['columnName'] = $a_col;
+                        $a_field['tgt_col_name'] = $tgt_col;
+                        $table_cols[$t_name][$a_col] = array_merge( $a_field, $table_cols[$t_name][$a_col] );
+
 
                         if( isset( $table_cols[$tgt_table][$back_ref])){
+
                             $table_cols[$tgt_table][$back_ref]['fieldName'] = $tgt_field;
                             $table_cols[$tgt_table][$back_ref]['assocName'] = $assoc_name;
-                            $table_cols[$tgt_table][$back_ref]['getter'] = $getter;
-                            $table_cols[$tgt_table][$back_ref]['setter'] = $setter;
+
+                            $tgt_methods = get_class_methods($tgt_class_name);
+                            $tgt_getter = "get".$this->camelize($tgt_field);
+                            $tgt_getter = in_array($tgt_getter, $tgt_methods)? $tgt_getter : '';
+                            $tgt_setter = "set".$this->camelize($tgt_field);
+                            $tgt_setter = in_array($tgt_setter, $tgt_methods)? $tgt_setter : '';
+                            $table_cols[$tgt_table][$back_ref]['getter'] = $tgt_getter;
+                            $table_cols[$tgt_table][$back_ref]['setter'] = $tgt_setter;
+
                             $table_cols[$tgt_table][$back_ref]['tgt_table_name'] = $t_name;
                             $table_cols[$tgt_table][$back_ref]['tgt_class_name'] = $class->name;
                             $table_cols[$tgt_table][$back_ref]['tgt_table_prim'] =       $table_ref[$t_name]['prim'];
                             $table_cols[$tgt_table][$back_ref]['tgt_table_identifier'] = $table_ref[$t_name]['identifier'];
                             $table_cols[$tgt_table][$back_ref]['tgt_field_name'] = $a_field_name;
                             $table_cols[$tgt_table][$back_ref]['tgt_col_name'] =   $a_col;
-                            if(isset( $table_cols[$tgt_table][$tgt_field."_col"] )){
-#var_dump( $tgt_field."_col", $back_ref, $table_cols[$tgt_table][$back_ref]['imaginary'] );
-                                $table_cols[$tgt_table][$tgt_field."_col"] =  array_merge( 
-                                    $table_cols[$tgt_table][$back_ref], $table_cols[$tgt_table][$tgt_field."_col"] );
-#var_dump( $table_cols[$tgt_table][$tgt_field."_col"]['imaginary'] );
-                                unset($table_cols[$tgt_table][$back_ref]);
+                            if( !isset( $table_cols[$tgt_table][$tgt_field."_col"] )){
+                                $table_cols[$tgt_table][$tgt_field."_col"] = array();
                             }
+                            $table_cols[$tgt_table][$tgt_field."_col"] =  array_merge( 
+                                                                       $table_cols[$tgt_table][$back_ref], $table_cols[$tgt_table][$tgt_field."_col"] );
+                            unset($table_cols[$tgt_table][$back_ref]);
                         }else{
-#var_dump("No foreign keys back ref> $back_ref");
+var_dump("No foreign keys back ref> $back_ref");
                         }
+                    }elseif('ONE_TO_ONE' == $assoc_name and count($a_field['joinColumns']) == 0){
+#var_dump( "Self: $t_name field> $a_field_name", "Target table: $tgt_table field> $tgt_field"); 
+                        $guessed_col = $a_field_name."_col"; # since I don't know col name or foreign key col at this point
+                        $table_cols[$t_name][$guessed_col] = $a_field;
                     }else{
-var_dump( 'Count of joinColumns = '.count($a_field['joinColumns']) );
+var_dump( "Table:$t_name  field:$a_field_name Count of joinColumns = ".count($a_field['joinColumns']), $a_field );
                     }
+
                 }else{
                     $guessed_col = $a_field_name."_col"; # since I don't know col name or foreign key col at this point
                     if( !isset($table_cols[$t_name][$guessed_col]) ){
-                        $a_field['is_association'] = 1;
-                        $a_field['assocName'] = $assoc_name;
-                        $a_field['single'] =       (int)$class->isSingleValuedAssociation($a_field_name);
-                        $a_field['collection'] =   (int)$class->isCollectionValuedAssociation($a_field_name);
-                        $a_field['inverse_side'] = (int)$class->isAssociationInverseSide($a_field_name);
-                        $a_field['getter'] = $getter;
-                        $a_field['setter'] = $setter;
-                        $a_field['tgt_table_name'] = $tgt_table;
-                        $a_field['tgt_class_name'] = $tgt_class_name;
-                        $a_field['tgt_table_prim'] =       $table_ref[$tgt_table]['prim'];
-                        $a_field['tgt_table_identifier'] = $table_ref[$tgt_table]['identifier'];
-                        $a_field['tgt_field_name'] = $tgt_field;
                         $table_cols[$t_name][$guessed_col] = $a_field;
                     }else{
                         // most likely it's many to many
@@ -625,6 +617,8 @@ var_dump( 'Count of joinColumns = '.count($a_field['joinColumns']) );
             if( !isset($table_ref[$table_name]) ){ continue; }
             foreach( $table_fs as $field_name=>$field ){
 
+#var_dump( "Self: $table_name field> $field_name", "Target table: {$field["tgt_table_name"] } field> {$field['tgt_field_name']}");
+ 
                 $tgt_table_id_getter = ( isset($field['tgt_table_identifier']) and $field['tgt_table_identifier'] != '' )? 
                     $table_fields[ $field["tgt_table_name"] ][ $field['tgt_table_identifier'] ]['getter'] : ''; 
                 $tgt_field_getter = ( isset($field['tgt_field_name']) and $field['tgt_field_name'] != '' )?
@@ -745,6 +739,9 @@ var_dump( 'Count of joinColumns = '.count($a_field['joinColumns']) );
                 foreach( $info['fields'] as $name=>$field ){
                     $getter = $field['getter'];
                     $col_class = str_replace(' ','_',$field['col']);
+#if('ONE_TO_ONE' == $field['association_name']){
+#    var_dump($field, get_class_methods(get_class($p_row)) );
+#}
                     if('' == $getter or !in_array($getter, get_class_methods( get_class($p_row) )) ){ 
                         $row[$field['col']] = array('col_class'=>$col_class, 'value'=>'', 'count'=>0, 'values'=> array());
                         continue; 
@@ -758,7 +755,7 @@ var_dump( 'Count of joinColumns = '.count($a_field['joinColumns']) );
                         $target_getter = $field["tgt_table_id_getter"];
                         $col_class .= ($field['imaginary'])? ' imaginary' : ' fkey';
 #var_dump("$name >$target_getter");
-#if($field['is_many_to_many']){
+#if('ONE_TO_ONE' == $field['association_name']){
 #    var_dump($target_getter, $field['association_name'], $col_class);
 #}
                         if(''== $target_getter or !in_array($target_getter, get_class_methods( $field['tgt_class_name'] )) ){ 

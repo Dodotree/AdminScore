@@ -1,4 +1,4 @@
-{% extends "SportsRushAdminBundle::admin.html.twig" %}
+{% extends "MuseumAdminBundle::admin.html.twig" %}
 
     {% block sidebar %}
     {% import _self as itself %}
@@ -209,7 +209,7 @@
 
 
 {% macro table_cell_inside(field, val) %}
-{% from "SportsRushAdminBundle::admin.html.twig" import thumbnail %}
+{% from "MuseumAdminBundle::admin.html.twig" import thumbnail %}
 {% import _self as itself %}
     {% if field.is_association %}
         <a href="{{path( route, {'table': field.tgt_table, ('query[equal]['~field.tgt_field~']'): val} )}}">
