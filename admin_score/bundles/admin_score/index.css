@@ -20,6 +20,10 @@
     font: 700 1.4rem/1.7 'Playfair Display',Georgia,serif;
 }
 
+.btn.refresh,
+.btn.save{
+    margin-bottom: 1rem;
+}
 
 .thumbnail-frame{
     display: inline-block;
@@ -116,9 +120,9 @@
         background-color: #f4f5f6;
     }
     .container{
-        width: 100rem;
-        padding: 0;
-        margin: 0;
+        display: flex;
+        flex-grow: 1;
+        overflow: hidden;
     }
     .top-side-bar,
     .top-main-bar{
@@ -129,27 +133,37 @@
     }
     .side-bar{
         position: relative;
+        display: flex;
+        flex-direction: column;
+        flex-basis: 24rem;
+        flex-shrink: 0;
+        min-width: 1px;
+        max-width: 28rem;
+        box-sizing: content-box;
         float:left;
-        width: 20rem;
         overflow: hidden;
     }
     .main{
         position: relative;
-        display: inline-block;
+        display: flex;
+        flex-direction: column;
+        flex-grow: 1;
+        min-width: 1px;
         float: left;
         width: 80rem;
     }
+    .main-body,
     .side-body{
-        min-height: 2000px;
+        position: relative;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
         padding: 1rem;
     }
-    .main-body{
-        padding: 1rem;
-    }
-    .main-body, 
     .main-body form{
         display: inline-block;
         vertical-align: top;
+        overflow: auto;
     }
     ul{
       margin: 0;

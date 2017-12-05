@@ -1,6 +1,6 @@
 <?php
 
-namespace Museum\AdminBundle\Controller;
+namespace SportsRush\AdminBundle\Controller;
 
 use Symfony\Bundle\FrameworkBundle\Controller\Controller;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
@@ -65,7 +65,7 @@ class HomeController extends Controller
             }
         }
 #var_dump($myTable['rows']);
-        return $this->render('MuseumAdminBundle:Home:tables_tab.html.twig', array(
+        return $this->render('SportsRushAdminBundle:Home:tables_tab.html.twig', array(
             'tables' => $tables,
             'myTableName' => $table_name,
             'myTable'=> $myTable, 
@@ -118,35 +118,35 @@ class HomeController extends Controller
 
         foreach( $table_names as $name ){ if( !isset( $mapping[$name] ) ){  $mapping[$name] = array( 'name'=>'none', 'rootEntityName' => 'none' ); }}
 
-        return $this->render('MuseumAdminBundle:Home:classes_tab.html.twig', array(
+        return $this->render('SportsRushAdminBundle:Home:classes_tab.html.twig', array(
             'mapping' => $mapping,
         ));
     }
 
     public function imagesTabAction(Request $request)
     {
-        return $this->render('MuseumAdminBundle:Home:images_tab.html.twig', array(
+        return $this->render('SportsRushAdminBundle:Home:images_tab.html.twig', array(
             'images' => glob('uploads/thumbs/*'),
         ));
     }
 
     public function videoTabAction(Request $request)
     {
-        return $this->render('MuseumAdminBundle:Home:video_tab.html.twig', array(
+        return $this->render('SportsRushAdminBundle:Home:video_tab.html.twig', array(
         //    'tables' => $tables,
         ));
     }
 
     public function mailTabAction(Request $request)
     {
-        return $this->render('MuseumAdminBundle:Home:mail_tab.html.twig', array(
+        return $this->render('SportsRushAdminBundle:Home:mail_tab.html.twig', array(
         //    'tables' => $tables,
         ));
     }
 
     public function claimsTabAction(Request $request)
     {
-        return $this->render('MuseumAdminBundle:Home:claims_tab.html.twig', array(
+        return $this->render('SportsRushAdminBundle:Home:claims_tab.html.twig', array(
         ));
     }
 
@@ -430,11 +430,14 @@ var_dump( 'no such local column found' );
                 $a_field['tgt_table_name'] = $tgt_table;
                 $a_field['tgt_table_prim'] =       $table_ref[$tgt_table]['prim'];
                 $a_field['tgt_table_identifier'] = $table_ref[$tgt_table]['identifier'];
-                $a_field['tgt_field_name'] = $tgt_field;
+                $a_field['tgt_field_name'] = ($tgt_field)? $tgt_field : '';
                 $a_field['single'] =       (int)$class->isSingleValuedAssociation($a_field_name);
                 $a_field['collection'] =   (int)$class->isCollectionValuedAssociation($a_field_name);
                 $a_field['inverse_side'] = (int)$class->isAssociationInverseSide($a_field_name);
 
+if( !$tgt_field ){ # one way 
+    var_dump( "Self: $t_name field> $a_field_name Target table: $tgt_table field> $tgt_field", $a_field);
+}
 
 #$a_column =  $class->getColumnName($a_field_name); ### does not respond to mysql column names
 #var_dump( ":::::::::: > $t_name $a_column " . (int)isset($table_cols[$t_name][$a_column]) );
@@ -519,7 +522,7 @@ var_dump( "Key Ref Column exists", $table_cols[$t_name][$ref]);
                         $table_cols[$t_name][$a_col] = array_merge( $a_field, $table_cols[$t_name][$a_col] );
 
 
-                        if( isset( $table_cols[$tgt_table][$back_ref])){
+                        if( isset( $table_cols[$tgt_table][$back_ref]) and $tgt_field){
 
                             $table_cols[$tgt_table][$back_ref]['fieldName'] = $tgt_field;
                             $table_cols[$tgt_table][$back_ref]['assocName'] = $assoc_name;
@@ -531,6 +534,10 @@ var_dump( "Key Ref Column exists", $table_cols[$t_name][$ref]);
                             $tgt_setter = in_array($tgt_setter, $tgt_methods)? $tgt_setter : '';
                             $table_cols[$tgt_table][$back_ref]['getter'] = $tgt_getter;
                             $table_cols[$tgt_table][$back_ref]['setter'] = $tgt_setter;
+
+                            $table_cols[$tgt_table][$back_ref]['single'] =       (int)$target_class->isSingleValuedAssociation($tgt_field);
+                            $table_cols[$tgt_table][$back_ref]['collection'] =   (int)$target_class->isCollectionValuedAssociation($tgt_field);
+                            $table_cols[$tgt_table][$back_ref]['inverse_side'] = (int)$target_class->isAssociationInverseSide($tgt_field);
 
                             $table_cols[$tgt_table][$back_ref]['tgt_table_name'] = $t_name;
                             $table_cols[$tgt_table][$back_ref]['tgt_class_name'] = $class->name;
@@ -772,6 +779,16 @@ var_dump( "Table:$t_name  field:$a_field_name Count of joinColumns = ".count($a_
                                 $arr['values'][] = $v->$target_getter();
                                 if( $i++ > 10){ break; }
                             }
+
+                        }elseif( get_class($val) == 'Doctrine\ORM\PersistentCollection' ){
+var_dump( "Warning: Field $name was not marked as collection" );
+                            $i = 0;
+                            $arr['count'] = count($val);
+                            foreach( $val as $v ){
+                                $arr['values'][] = $v->$target_getter();
+                                if( $i++ > 10){ break; }
+                            }
+
                         }elseif( get_class($val) == $field['tgt_class_name'] or $val){ #match or Proxy
                             $arr['count'] = 1;
                             $arr['values'][] = $val->$target_getter();
@@ -793,13 +810,14 @@ var_dump(get_class($val));
                 $rows[] = $row;
             }
 #var_dump($rows);
+            $p_data = $pagination->getPaginationData();
 
             $myTable = array(
                          'table' => $info,
                          'query' =>  $get_query,
                          'rows' =>   $rows,
                          'pagination' => $pagination,
-                         'show_pagination_bool' => count( $collection ) > $perPage,
+                         'show_pagination_bool' => $p_data['totalCount'] > $perPage,
                         );
 
     return $myTable;
@@ -911,12 +929,14 @@ var_dump(get_class($val));
                 $rows[] = $row;
             }
 
+            $p_data = $pagination->getPaginationData();
+
             $myTable = array( 
                          'table' => $info,
                          'query' =>  $get_query,
                          'rows' =>   $rows,
                          'pagination' => $pagination,
-                         'show_pagination_bool' => count( $collection ) > $perPage,
+                         'show_pagination_bool' => $p_data['totalCount'] > $perPage,
                         );
     return $myTable;
     }

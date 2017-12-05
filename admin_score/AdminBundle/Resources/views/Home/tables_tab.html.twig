@@ -1,14 +1,12 @@
-{% extends "MuseumAdminBundle::admin.html.twig" %}
+{% extends "SportsRushAdminBundle::admin.html.twig" %}
 
     {% block sidebar %}
     {% import _self as itself %}
         <div class="side-body coffee">
-          <a class="refresh btn dark">Refresh Preferences</a>
-          <br>
-          <br>
-          <a class="save btn">Save Preferences</a>
-          <br>
-          <br>
+
+            <a class="refresh btn dark">Refresh Preferences</a>
+            <a class="save btn">Save Preferences</a>
+
             <form class="prefs">
             <input type="hidden" name="prefs_form" value="1" />
             {% set route = app.request.attributes.get('_route') %}
@@ -209,7 +207,7 @@
 
 
 {% macro table_cell_inside(field, val) %}
-{% from "MuseumAdminBundle::admin.html.twig" import thumbnail %}
+{% from "SportsRushAdminBundle::admin.html.twig" import thumbnail %}
 {% import _self as itself %}
     {% if field.is_association %}
         <a href="{{path( route, {'table': field.tgt_table, ('query[equal]['~field.tgt_field~']'): val} )}}">
