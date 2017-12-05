@@ -2,7 +2,7 @@
 
 Minimalistic Admin Panel for Symfony3, picks up your tables and related classes automatically.
 It will let you to see columns and foreign keys and back references. 
-You will be able to run basic queries 
+You will be able to run basic queries also
 
 <img src="https://github.com/Dodotree/AdminScore/blob/master/Capture.JPG?raw=true">
 
