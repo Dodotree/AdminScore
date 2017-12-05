@@ -14,3 +14,7 @@ You will be able to run basic queries
 
 Video demonstration available at
 https://www.youtube.com/watch?v=MtSyIQlQrJg&feature=youtu.be
+
+Code is really minimalistic, we hope you will find it easy to modify for you needs. It's an ongoing open source project, feel free to use it(no guarantees whatsoever). You will need to change namespaces and register package as you would do for your custom bundle. And it requires knp pagination module.
+
+Let us know if you have any questions. 
