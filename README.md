@@ -1,5 +1,4 @@
 # AdminScore
-================
 
 Minimalistic Admin Panel for Symfony3, picks up your tables and related classes automatically.
 It will let you to see columns and foreign keys and back references. 
