@@ -170,26 +170,30 @@ class HomeController extends Controller
     }
 
 
+
     private function deleteRows($conn, $sm, $table_name, $rows)
     {
         $table_names = $sm->listTableNames();
         if( !in_array($table_name, $table_names) ){
             return array('errors'=>"Table {$table_name} not found");
         }
-        if( !$stmt = $conn->prepare("DELETE FROM {$table_name} WHERE id = :id") ){
-            return array('errors'=>"Prepare delete from  {$table_name} failed");
-        }
         $reply = array('errors'=>array(), 'successes'=>array());
-        foreach( $rows as $id=>$on ){
-            $stmt->bindParam('id', $id);
-            if( !$stmt->execute() ){ 
-                $reply['errors'][] = $stmt->error; 
-            }else{
-                $reply['successes'][] = $id;
+        foreach( $rows as $prim_key=>$values ){
+            if( !$stmt = $conn->prepare("DELETE FROM {$table_name} WHERE $prim_key = :$prim_key") ){
+                return array('errors'=>"Prepare delete from  {$table_name} failed");
+            }
+            foreach( $values as $val=>$on ){
+                $stmt->bindParam($prim_key, $val);
+                if( !$stmt->execute() ){
+                    $reply['errors'][] = $stmt->error;
+                }else{
+                    $reply['successes'][] = "$prim_key=>$val";
+                }
             }
         }
     return $reply;
     }
+
 
 
     private function refreshAdminTable($conn, $sm)
